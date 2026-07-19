@@ -3155,8 +3155,12 @@
           return `\u0000INLINECODE${i}\u0000`;
         });
 
-        // Links [label](url)
-        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        // Links [label](url) including mailto
+        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+|mailto:[^)\s]+)\)/g, (_, label, url) => {
+          const external = /^https?:\/\//i.test(url);
+          const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : "";
+          return `<a href="${url}"${attrs}>${label}</a>`;
+        });
 
         // Bold then italic (order matters)
         s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
@@ -3169,6 +3173,9 @@
 
         // Bare URLs (skip ones already inside href=")
         s = s.replace(/(^|[^">])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+
+        // Bare emails (skip ones already inside href / mailto)
+        s = s.replace(/(^|[^"'>:\w/])([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g, '$1<a href="mailto:$2">$2</a>');
 
         // Markdown tables (| col | col |)
         const isTableSep = (line) => {
