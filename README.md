@@ -75,9 +75,10 @@ DFY ³  Done For You       full AI department      RM2K – RM100K
 | Frontend | Vanilla HTML, CSS, JS (`index.html`) |
 | Design | Custom tokens, chamfered geometry, dark / light themes |
 | Hosting | [Cloudflare Pages](https://pages.cloudflare.com/) |
-| API | Pages Function at `functions/api/chat.js` |
+| API | Pages Functions: `/api/chat`, `/api/contact` |
 | LLM | OpenRouter (`deepseek/deepseek-v4-flash` by default) |
-| Local dev | `chat-server.mjs` (static + chat proxy on port `8788`) |
+| Contact mail | Resend (branded HTML to Aliff + Amir) |
+| Local dev | `chat-server.mjs` (static + chat/contact proxy on port `8788`) |
 
 ---
 
@@ -90,8 +91,11 @@ lumina-official-site/
 ├── wrangler.toml              # Cloudflare Pages project config
 ├── .env.example               # Env var template (safe to commit)
 ├── functions/
+│   ├── _shared/
+│   │   └── contact-email.js   # Branded HTML email template + Resend send
 │   └── api/
-│       └── chat.js            # Production chat proxy (Pages Function)
+│       ├── chat.js            # Production chat proxy
+│       └── contact.js         # Contact form → Aliff + Amir
 └── assets/
     ├── lumina-logo-dark.png   # Logo for dark theme
     ├── lumina-logo-light.png  # Logo for light theme
@@ -132,6 +136,8 @@ OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 OPENROUTER_REASONING=medium
 SITE_URL=https://luminaframeworks.pages.dev
+RESEND_API_KEY=re_...
+CONTACT_FROM=Lumina Frameworks <noreply@lumina-frameworks.com>
 ```
 
 ### 3. Run locally
@@ -162,10 +168,14 @@ pages_build_output_dir = "."
 1. Connect the GitHub repo to Cloudflare Pages (or deploy with Wrangler).
 2. Set environment variables in **Pages → Settings → Environment variables**:
    - `OPENROUTER_API_KEY` (secret)
+   - `RESEND_API_KEY` (secret)
    - `OPENROUTER_MODEL` (optional)
    - `OPENROUTER_REASONING` (optional)
    - `SITE_URL`
-3. Deploy. The chat route lands at `/api/chat`.
+   - `CONTACT_FROM` (verified Resend sender, e.g. `Lumina Frameworks <noreply@lumina-frameworks.com>`)
+3. Deploy. Routes land at `/api/chat` and `/api/contact`.
+
+Verify your domain in [Resend](https://resend.com) so mail can send from `@lumina-frameworks.com` to Aliff and Amir.
 
 ```bash
 npx wrangler pages deploy . --project-name=lumina-main-site-v4

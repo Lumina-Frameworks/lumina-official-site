@@ -9,6 +9,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { sendContactEmail } from "./functions/_shared/contact-email.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8788);
@@ -201,6 +202,43 @@ async function handleChat(req, res) {
   res.end();
 }
 
+async function handleContact(req, res) {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    });
+    res.end();
+    return;
+  }
+
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  } catch {
+    sendJson(res, 400, { error: "Invalid JSON body." });
+    return;
+  }
+
+  try {
+    const result = await sendContactEmail(ENV, body);
+    sendJson(res, 200, { ok: true, id: result.id });
+  } catch (err) {
+    sendJson(res, err?.status || 500, {
+      error: err?.message || "Transmission failed.",
+      detail: err?.detail || undefined
+    });
+  }
+}
+
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname);
   if (urlPath === "/") urlPath = "/index.html";
@@ -224,6 +262,10 @@ const server = http.createServer((req, res) => {
     handleChat(req, res);
     return;
   }
+  if (url.pathname === "/api/contact") {
+    handleContact(req, res);
+    return;
+  }
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405).end("Method not allowed");
     return;
@@ -234,4 +276,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Lumina local server: http://127.0.0.1:${PORT}`);
   console.log(`Chat proxy: POST /api/chat (OpenRouter ${ENV.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash"})`);
+  console.log(`Contact: POST /api/contact → Aliff + Amir (Resend)`);
 });

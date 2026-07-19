@@ -2020,16 +2020,6 @@
                 <span class="contact-panel-label">// DIRECT_LINKS</span>
                 <span class="contact-panel-hint">ONLINE</span>
               </div>
-              <a class="info-card" href="https://luminaframeworks.com" target="_blank" rel="noopener noreferrer" data-cursor>
-                <span class="info-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9s1.3-6.2 3.8-9z"/></svg>
-                </span>
-                <span>
-                  <span class="info-label mono">WEBSITE</span>
-                  <span class="info-value">luminaframeworks.com</span>
-                </span>
-                <span class="info-go" aria-hidden="true">↗</span>
-              </a>
               <a class="info-card" href="https://t.me/luminaframeworks" target="_blank" rel="noopener noreferrer" data-cursor>
                 <span class="info-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 5L3 11.5l6.2 2.1L17 8l-6.4 7.2-.2 3.8L13 16.5 18.5 20 21 5z"/></svg>
@@ -2037,6 +2027,26 @@
                 <span>
                   <span class="info-label mono">TELEGRAM</span>
                   <span class="info-value">t.me/luminaframeworks</span>
+                </span>
+                <span class="info-go" aria-hidden="true">↗</span>
+              </a>
+              <a class="info-card" href="mailto:aliffros@lumina-frameworks.com" data-cursor>
+                <span class="info-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 7 9-7"/></svg>
+                </span>
+                <span>
+                  <span class="info-label mono">EMAIL</span>
+                  <span class="info-value">Aliff Ross</span>
+                </span>
+                <span class="info-go" aria-hidden="true">↗</span>
+              </a>
+              <a class="info-card" href="mailto:amirhafizi@lumina-frameworks.com" data-cursor>
+                <span class="info-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 7 9-7"/></svg>
+                </span>
+                <span>
+                  <span class="info-label mono">EMAIL</span>
+                  <span class="info-value">Amir</span>
                 </span>
                 <span class="info-go" aria-hidden="true">↗</span>
               </a>
@@ -2515,21 +2525,50 @@
         });
       });
 
-      /* ---------- Contact form ---------- */
+      /* ---------- Contact form → branded email (Aliff + Amir) ---------- */
       const form = document.getElementById("lumina-contact-form");
       const formStatus = document.getElementById("form-status");
       const submitBtn = document.getElementById("submit-btn");
-      form?.addEventListener("submit", (e) => {
+      form?.addEventListener("submit", async (e) => {
         e.preventDefault();
+        const name = String(form.name.value || "").trim();
+        const email = String(form.email.value || "").trim();
+        const interest = String(form.interest.value || "").trim();
+        const message = String(form.message.value || "").trim();
+        if (!name || !email || !interest || !message) {
+          formStatus.className = "form-status err";
+          formStatus.textContent = "[ERROR] Fill in all fields before transmitting.";
+          return;
+        }
+
         submitBtn.classList.add("is-loading");
+        submitBtn.disabled = true;
         formStatus.className = "form-status";
         formStatus.textContent = "Transmitting secure payload...";
-        setTimeout(() => {
-          submitBtn.classList.remove("is-loading");
+
+        try {
+          const res = await fetch("/api/contact", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            body: JSON.stringify({ name, email, interest, message })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data?.error || "Transmission failed.");
+          }
           formStatus.className = "form-status ok";
           formStatus.textContent = "[SUCCESS] Message received. We'll reply within 24 hours.";
           form.reset();
-        }, 1100);
+        } catch (err) {
+          formStatus.className = "form-status err";
+          formStatus.textContent = `[ERROR] ${err?.message || "Could not send. Try Telegram or email us directly."}`;
+        } finally {
+          submitBtn.classList.remove("is-loading");
+          submitBtn.disabled = false;
+        }
       });
 
       /* ---------- Neural canvas ---------- */
