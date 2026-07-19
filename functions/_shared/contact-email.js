@@ -4,8 +4,10 @@
  */
 
 export const CONTACT_RECIPIENTS = [
-  "aliffros@lumina-frameworks.com",
-  "amirhafizi@lumina-frameworks.com"
+  // Deliver to real inboxes. @lumina-frameworks.com Custom addresses must exist
+  // in Cloudflare Email Routing before those aliases can receive mail.
+  "aliffprime3@gmail.com",
+  "amirhafizi443@gmail.com"
 ];
 
 const INTEREST_META = {
