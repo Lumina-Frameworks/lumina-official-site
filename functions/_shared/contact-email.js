@@ -237,9 +237,21 @@ export async function sendContactEmail(env, payload) {
     throw err;
   }
 
-  const from =
-    env.CONTACT_FROM ||
-    "Lumina Frameworks <onboarding@resend.dev>";
+  const from = String(env.CONTACT_FROM || "").trim();
+  if (!from) {
+    const err = new Error(
+      "Missing CONTACT_FROM. Set it in Cloudflare to e.g. Lumina Frameworks <noreply@lumina-frameworks.com>."
+    );
+    err.status = 500;
+    throw err;
+  }
+  if (!/@lumina-frameworks\.com>/i.test(from) && !/@lumina-frameworks\.com$/i.test(from)) {
+    const err = new Error(
+      `CONTACT_FROM must use your verified domain. Got: ${from}`
+    );
+    err.status = 500;
+    throw err;
+  }
   const to = CONTACT_RECIPIENTS;
   const subject = buildContactSubject(data);
   const html = buildContactHtml(data);
@@ -274,7 +286,7 @@ export async function sendContactEmail(env, payload) {
     } catch {
       /* keep default */
     }
-    const err = new Error(resendMessage);
+    const err = new Error(`${resendMessage} [from=${from}]`);
     // Avoid HTTP 502: Cloudflare proxies rewrite origin 502s into a generic gateway page.
     err.status = 500;
     err.detail = detail.slice(0, 800);
