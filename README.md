@@ -137,7 +137,7 @@ OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 OPENROUTER_REASONING=medium
 SITE_URL=https://luminaframeworks.pages.dev
 RESEND_API_KEY=re_...
-CONTACT_FROM=Lumina Frameworks <noreply@lumina-frameworks.com>
+CONTACT_FROM=Lumina Frameworks <hello@lumina-frameworks.com>
 ```
 
 ### 3. Run locally
@@ -172,7 +172,7 @@ pages_build_output_dir = "."
    - `OPENROUTER_MODEL` (optional)
    - `OPENROUTER_REASONING` (optional)
    - `SITE_URL`
-   - `CONTACT_FROM` (verified Resend sender, e.g. `Lumina Frameworks <noreply@lumina-frameworks.com>`)
+   - `CONTACT_FROM` (verified Resend sender, e.g. `Lumina Frameworks <hello@lumina-frameworks.com>`)
 3. Deploy. Routes land at `/api/chat` and `/api/contact`.
 
 Verify your domain in [Resend](https://resend.com) so mail can send from `@lumina-frameworks.com` to Aliff and Amir.

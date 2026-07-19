@@ -4,7 +4,7 @@
  *
  * Env:
  * - RESEND_API_KEY (secret)
- * - CONTACT_FROM (optional, e.g. "Lumina Frameworks <noreply@lumina-frameworks.com>")
+ * - CONTACT_FROM (optional, e.g. "Lumina Frameworks <hello@lumina-frameworks.com>")
  */
 import { sendContactEmail } from "../_shared/contact-email.js";
 

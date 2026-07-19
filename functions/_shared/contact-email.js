@@ -238,7 +238,7 @@ export async function sendContactEmail(env, payload) {
   }
 
   const from = String(
-    env.CONTACT_FROM || "Lumina Frameworks <noreply@lumina-frameworks.com>"
+    env.CONTACT_FROM || "Lumina Frameworks <hello@lumina-frameworks.com>"
   ).trim();
   if (!/lumina-frameworks\.com/i.test(from)) {
     const err = new Error(
