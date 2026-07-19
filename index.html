@@ -147,6 +147,49 @@
     body.cursor-hover .cursor { width: 10px; height: 10px; }
     body.cursor-hover .cursor-ring { width: 54px; height: 54px; }
 
+    /* Theme swap: circular wipe from the toggle (View Transitions API) */
+    html.theme-switching {
+      pointer-events: none;
+    }
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+    ::view-transition-old(root) {
+      z-index: 1;
+    }
+    ::view-transition-new(root) {
+      z-index: 9999;
+      animation: themeCircleIn 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    @keyframes themeCircleIn {
+      from { clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%)); }
+      to { clip-path: circle(var(--theme-r, 100vmax) at var(--theme-x, 50%) var(--theme-y, 50%)); }
+    }
+    .theme-veil {
+      position: fixed; inset: 0; z-index: 20000; pointer-events: none;
+      background:
+        linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 65%),
+        var(--bg);
+      opacity: 0;
+      clip-path: inset(50% 0 50% 0);
+      transition: opacity 0.2s ease, clip-path 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .theme-veil.is-on {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+    }
+    .theme-veil.is-swap {
+      opacity: 0;
+      transition: opacity 0.35s ease 0.05s;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(root),
+      ::view-transition-new(root) { animation: none !important; }
+      .theme-veil { display: none !important; }
+    }
+
     /* ---------- Noise / grain ---------- */
     .noise-overlay {
       position: fixed; inset: 0; pointer-events: none; z-index: 9000; opacity: var(--noise-op);
@@ -2166,11 +2209,52 @@
       const themeToggle = document.getElementById("theme-toggle");
       const savedTheme = localStorage.getItem("lumina-theme");
       if (savedTheme === "light" || savedTheme === "dark") html.setAttribute("data-theme", savedTheme);
-      themeToggle?.addEventListener("click", () => {
-        const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+
+      const applyTheme = (next) => {
         html.setAttribute("data-theme", next);
         localStorage.setItem("lumina-theme", next);
-      });
+      };
+
+      const runThemeVeilFallback = (next) => {
+        const veil = document.createElement("div");
+        veil.className = "theme-veil";
+        veil.setAttribute("aria-hidden", "true");
+        document.body.appendChild(veil);
+        requestAnimationFrame(() => veil.classList.add("is-on"));
+        window.setTimeout(() => {
+          applyTheme(next);
+          veil.classList.add("is-swap");
+          window.setTimeout(() => veil.remove(), 420);
+        }, 220);
+      };
+
+      const swapTheme = (originBtn) => {
+        if (html.classList.contains("theme-switching")) return;
+        const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduce || !document.startViewTransition) {
+          if (reduce) applyTheme(next);
+          else runThemeVeilFallback(next);
+          return;
+        }
+
+        const rect = (originBtn || themeToggle).getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const endRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+        );
+        html.style.setProperty("--theme-x", `${x}px`);
+        html.style.setProperty("--theme-y", `${y}px`);
+        html.style.setProperty("--theme-r", `${Math.ceil(endRadius)}px`);
+        html.classList.add("theme-switching");
+
+        const transition = document.startViewTransition(() => applyTheme(next));
+        transition.finished.finally(() => html.classList.remove("theme-switching"));
+      };
+
+      themeToggle?.addEventListener("click", () => swapTheme(themeToggle));
 
       /* ---------- Splash ---------- */
       const splash = document.getElementById("splash");

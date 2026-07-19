@@ -105,6 +105,45 @@
     body.cursor-hover .cursor { width: 10px; height: 10px; }
     body.cursor-hover .cursor-ring { width: 54px; height: 54px; }
 
+    /* Theme swap: circular wipe from the toggle */
+    html.theme-switching { pointer-events: none; }
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+    ::view-transition-old(root) { z-index: 1; }
+    ::view-transition-new(root) {
+      z-index: 9999;
+      animation: themeCircleIn 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    @keyframes themeCircleIn {
+      from { clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%)); }
+      to { clip-path: circle(var(--theme-r, 100vmax) at var(--theme-x, 50%) var(--theme-y, 50%)); }
+    }
+    .theme-veil {
+      position: fixed; inset: 0; z-index: 20000; pointer-events: none;
+      background:
+        linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 65%),
+        var(--bg);
+      opacity: 0;
+      clip-path: inset(50% 0 50% 0);
+      transition: opacity 0.2s ease, clip-path 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .theme-veil.is-on {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+    }
+    .theme-veil.is-swap {
+      opacity: 0;
+      transition: opacity 0.35s ease 0.05s;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(root),
+      ::view-transition-new(root) { animation: none !important; }
+      .theme-veil { display: none !important; }
+    }
+
     .noise-overlay {
       position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: var(--noise-op);
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -476,19 +515,75 @@
     }
     .search-clear:hover { color: var(--accent); }
     .sort-shell {
+      position: relative;
       display: flex; align-items: center; gap: 0.55rem;
-      padding: 0 1rem; border: 1px solid var(--line-color);
+      padding: 0 0.85rem;
+      border: 1px solid var(--line-color);
       background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
       clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
       min-height: 52px;
-      transition: min-height 0.45s var(--ease-out), padding 0.45s var(--ease-out);
+      transition: min-height 0.45s var(--ease-out), padding 0.45s var(--ease-out), border-color 0.25s;
+      z-index: 5;
     }
-    .sort-shell label {
+    .sort-shell.is-open {
+      border-color: var(--accent);
+      z-index: 60;
+      clip-path: none;
+    }
+    .sort-shell > span {
       font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em; color: var(--ink-faint);
     }
-    .sort-shell select {
-      border: 0; outline: 0; background: transparent; cursor: none;
-      font-family: var(--font-mono); font-size: 0.78rem;
+    .sort-trigger {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      border: 0; background: transparent; cursor: none;
+      font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink);
+      padding: 0.2rem 0;
+      min-width: 5.5rem;
+    }
+    .sort-trigger svg {
+      width: 14px; height: 14px; color: var(--accent);
+      transition: transform 0.3s var(--ease-out);
+    }
+    .sort-shell.is-open .sort-trigger svg { transform: rotate(180deg); }
+    .sort-menu {
+      position: absolute;
+      top: calc(100% + 0.45rem);
+      right: 0;
+      left: auto;
+      min-width: 100%;
+      padding: 0.35rem;
+      border: 1px solid var(--line-strong);
+      background: var(--bg-panel);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.3s var(--ease-out), visibility 0.25s;
+      z-index: 70;
+    }
+    .sort-shell.is-open .sort-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .sort-option {
+      display: block; width: 100%;
+      border: 0; background: transparent; cursor: none; text-align: left;
+      font-family: var(--font-mono); font-size: 0.76rem;
+      padding: 0.55rem 0.7rem; color: var(--ink-soft);
+      clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+      transition: background 0.2s, color 0.2s;
+    }
+    .sort-option:hover {
+      color: var(--ink);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .sort-option.is-active {
+      color: var(--on-accent);
+      background: var(--accent-grad);
     }
     .control-extras {
       display: grid;
@@ -811,14 +906,18 @@
               <input id="project-search" type="search" placeholder="Search title, outcome, stack..." autocomplete="off" aria-label="Search projects" />
               <button class="search-clear" id="search-clear" type="button" hidden>CLEAR</button>
             </div>
-            <div class="sort-shell">
-              <label for="project-sort">SORT</label>
-              <select id="project-sort">
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="az">A → Z</option>
-                <option value="za">Z → A</option>
-              </select>
+            <div class="sort-shell" id="sort-shell">
+              <span>SORT</span>
+              <button class="sort-trigger" id="sort-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-cursor>
+                <span id="sort-label">Newest</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="sort-menu" id="sort-menu" role="listbox" aria-label="Sort projects">
+                <button class="sort-option is-active" type="button" role="option" data-sort="newest" aria-selected="true" data-cursor>Newest</button>
+                <button class="sort-option" type="button" role="option" data-sort="oldest" aria-selected="false" data-cursor>Oldest</button>
+                <button class="sort-option" type="button" role="option" data-sort="az" aria-selected="false" data-cursor>A → Z</button>
+                <button class="sort-option" type="button" role="option" data-sort="za" aria-selected="false" data-cursor>Z → A</button>
+              </div>
             </div>
           </div>
           <div class="control-extras">
@@ -992,12 +1091,53 @@
     const header = document.getElementById("site-header");
     const menuToggle = document.getElementById("menu-toggle");
     const mobileNav = document.getElementById("mobile-nav");
+    const themeToggle = document.getElementById("theme-toggle");
 
-    document.getElementById("theme-toggle")?.addEventListener("click", () => {
-      const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    const applyTheme = (next) => {
       html.setAttribute("data-theme", next);
       localStorage.setItem("lumina-theme", next);
-    });
+    };
+
+    const runThemeVeilFallback = (next) => {
+      const veil = document.createElement("div");
+      veil.className = "theme-veil";
+      veil.setAttribute("aria-hidden", "true");
+      document.body.appendChild(veil);
+      requestAnimationFrame(() => veil.classList.add("is-on"));
+      window.setTimeout(() => {
+        applyTheme(next);
+        veil.classList.add("is-swap");
+        window.setTimeout(() => veil.remove(), 420);
+      }, 220);
+    };
+
+    const swapTheme = (originBtn) => {
+      if (html.classList.contains("theme-switching")) return;
+      const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduce || !document.startViewTransition) {
+        if (reduce) applyTheme(next);
+        else runThemeVeilFallback(next);
+        return;
+      }
+
+      const rect = originBtn.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+      html.style.setProperty("--theme-x", `${x}px`);
+      html.style.setProperty("--theme-y", `${y}px`);
+      html.style.setProperty("--theme-r", `${Math.ceil(endRadius)}px`);
+      html.classList.add("theme-switching");
+
+      const transition = document.startViewTransition(() => applyTheme(next));
+      transition.finished.finally(() => html.classList.remove("theme-switching"));
+    };
+
+    themeToggle?.addEventListener("click", () => swapTheme(themeToggle));
 
     menuToggle?.addEventListener("click", () => {
       const open = !mobileNav.classList.contains("is-open");
@@ -1048,7 +1188,10 @@
       empty: document.getElementById("empty-state"),
       search: document.getElementById("project-search"),
       clear: document.getElementById("search-clear"),
-      sort: document.getElementById("project-sort"),
+      sortShell: document.getElementById("sort-shell"),
+      sortTrigger: document.getElementById("sort-trigger"),
+      sortMenu: document.getElementById("sort-menu"),
+      sortLabel: document.getElementById("sort-label"),
       cats: document.getElementById("category-filters"),
       visible: document.getElementById("visible-count"),
       total: document.getElementById("total-count"),
@@ -1130,12 +1273,35 @@
       bindCursorHover(els.grid);
     }
 
+    const SORT_LABELS = {
+      newest: "Newest",
+      oldest: "Oldest",
+      az: "A → Z",
+      za: "Z → A"
+    };
+
+    function setSortOpen(open) {
+      els.sortShell.classList.toggle("is-open", open);
+      els.sortTrigger.setAttribute("aria-expanded", String(open));
+    }
+
+    function setSort(value, close = true) {
+      state.sort = value;
+      els.sortLabel.textContent = SORT_LABELS[value] || value;
+      els.sortMenu.querySelectorAll(".sort-option").forEach((btn) => {
+        const active = btn.dataset.sort === value;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-selected", String(active));
+      });
+      if (close) setSortOpen(false);
+      render();
+    }
+
     function resetFilters() {
       state.query = "";
       state.category = "All";
-      state.sort = "newest";
       els.search.value = "";
-      els.sort.value = "newest";
+      setSort("newest", false);
       renderFilters();
       render();
     }
@@ -1157,9 +1323,20 @@
       render();
       els.search.focus();
     });
-    els.sort.addEventListener("change", () => {
-      state.sort = els.sort.value;
-      render();
+    els.sortTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setSortOpen(!els.sortShell.classList.contains("is-open"));
+    });
+    els.sortMenu.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-sort]");
+      if (!btn) return;
+      setSort(btn.dataset.sort);
+    });
+    document.addEventListener("click", (e) => {
+      if (!els.sortShell.contains(e.target)) setSortOpen(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setSortOpen(false);
     });
     els.reset.addEventListener("click", resetFilters);
     els.emptyReset.addEventListener("click", resetFilters);
