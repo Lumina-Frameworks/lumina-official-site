@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" role="img" aria-label="Lumina Frameworks">
+  <!-- Chamfered housing -->
+  <path class="lf-frame" fill="var(--logo-frame, #0e1117)" stroke="var(--logo-stroke, #d4a056)" stroke-opacity="0.55" stroke-width="1.6" d="M17 3H77V63L63 77H3V17Z"/>
+  <!-- Soft inner plate -->
+  <path class="lf-plate" fill="var(--logo-plate, #161a22)" d="M21 9H71V59L59 71H9V21Z"/>
+  <!-- Letter L: angular stem + foot -->
+  <path class="lf-l" fill="var(--logo-l, #d4a056)" d="M18 18H33V45.5L37 49.5H52L58 55.5V66H18V18Z"/>
+  <!-- Letter F: cuts through and over L -->
+  <path class="lf-f" fill="var(--logo-f, #3a9e94)" d="M39 18H63L69 24V33H47V37.5H64L69 42.5V51.5H47V66H39V18Z"/>
+  <!-- Lumen gem -->
+  <path class="lf-gem" fill="var(--logo-gem, #e8c078)" d="M48 41.5 53.5 36 59 41.5 53.5 47Z"/>
+  <!-- Accent ticks -->
+  <path class="lf-tick" stroke="var(--logo-l, #d4a056)" stroke-width="1.4" stroke-linecap="square" d="M11 11h7M11 11v7"/>
+  <path class="lf-tick" stroke="var(--logo-f, #3a9e94)" stroke-width="1.4" stroke-linecap="square" d="M69 69h-7M69 69v-7"/>
+</svg>

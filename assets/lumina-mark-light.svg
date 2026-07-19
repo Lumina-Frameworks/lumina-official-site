@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Lumina Frameworks">
+  <path fill="#1a1d24" stroke="#b8862e" stroke-opacity="0.55" stroke-width="1.35" d="M13 2.5H61.5V51.5L51.5 61.5H2.5V13Z"/>
+  <path fill="#d4a056" d="M15 15h13v27h18v11H15V15Z"/>
+  <path fill="#3aa89e" d="M32 15h20.5L56 18.5V27H38v5h14v9H38v13H32V15Z"/>
+  <path fill="#e8c078" d="M39.5 35.5 43 32l3.5 3.5L43 39z"/>
+</svg>
