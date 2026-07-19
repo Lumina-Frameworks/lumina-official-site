@@ -1444,6 +1444,50 @@
       margin: 0.4rem 0 0.2rem; padding-left: 1.15rem; white-space: normal;
     }
     .lumi-msg .body li { margin: 0.15rem 0; }
+    .lumi-msg .body .lumi-table-wrap {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      margin: 0.55rem 0 0.35rem;
+      white-space: normal;
+      border: 1px solid var(--line-color);
+      background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
+      -webkit-overflow-scrolling: touch;
+    }
+    .lumi-msg .body table.lumi-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      white-space: normal;
+    }
+    .lumi-msg .body table.lumi-table th,
+    .lumi-msg .body table.lumi-table td {
+      padding: 0.45rem 0.55rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line-color);
+      border-right: 1px solid color-mix(in srgb, var(--line-color) 70%, transparent);
+    }
+    .lumi-msg .body table.lumi-table th:last-child,
+    .lumi-msg .body table.lumi-table td:last-child { border-right: none; }
+    .lumi-msg .body table.lumi-table tr:last-child td { border-bottom: none; }
+    .lumi-msg .body table.lumi-table thead th {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-3);
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+      white-space: nowrap;
+    }
+    .lumi-msg .body table.lumi-table tbody td {
+      color: var(--ink-soft);
+    }
+    .lumi-msg .body table.lumi-table tbody tr:nth-child(even) td {
+      background: color-mix(in srgb, var(--accent) 4%, transparent);
+    }
     .lumi-typing {
       display: inline-flex; gap: 4px; align-items: center; height: 1em;
     }
@@ -2768,6 +2812,45 @@
 
         // Bare URLs (skip ones already inside href=")
         s = s.replace(/(^|[^">])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+
+        // Markdown tables (| col | col |)
+        const isTableSep = (line) => {
+          const t = line.trim();
+          return /^\|?[\s\-:|]+\|?$/.test(t) && /-/.test(t);
+        };
+        const splitTableRow = (line) => {
+          let t = line.trim();
+          if (t.startsWith("|")) t = t.slice(1);
+          if (t.endsWith("|")) t = t.slice(0, -1);
+          return t.split("|").map((c) => c.trim());
+        };
+        s = s.replace(/(?:(?:^|\n)\|[^\n]*(?:\n\|[^\n]*)+)/g, (block) => {
+          const lines = block.trim().split(/\n/).map((l) => l.trim()).filter(Boolean);
+          if (lines.length < 2 || !lines.every((l) => l.includes("|"))) return block;
+
+          let headerLine = lines[0];
+          let bodyLines = lines.slice(1);
+          if (bodyLines[0] && isTableSep(bodyLines[0])) {
+            bodyLines = bodyLines.slice(1);
+          } else if (!bodyLines.some((l) => !isTableSep(l))) {
+            return block;
+          }
+          bodyLines = bodyLines.filter((l) => !isTableSep(l));
+          if (!bodyLines.length) return block;
+
+          const headers = splitTableRow(headerLine);
+          const colCount = headers.length;
+          if (colCount < 2) return block;
+
+          const thead = `<thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>`;
+          const tbody = `<tbody>${bodyLines.map((line) => {
+            const cells = splitTableRow(line);
+            while (cells.length < colCount) cells.push("");
+            return `<tr>${cells.slice(0, colCount).map((c) => `<td>${c}</td>`).join("")}</tr>`;
+          }).join("")}</tbody>`;
+
+          return `\n<div class="lumi-table-wrap"><table class="lumi-table">${thead}${tbody}</table></div>\n`;
+        });
 
         // Simple bullet lists: consecutive lines starting with - or *
         s = s.replace(/(?:(?:^|\n)(?:[-*]|&bull;)\s+.+(?:\n(?:[-*]|&bull;)\s+.+)*)/g, (block) => {
