@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Official site for Lumina Frameworks: a Malaysia-based AI agency and training hub<br />
+  Official site for Lumina Frameworks: A Malaysia-based AI agency and training hub<br />
   helping businesses automate, scale, and ship with practical autonomous agents.
 </p>
 
