@@ -64,7 +64,7 @@ export function buildContactText({ name, email, interest, message }) {
     "-------",
     message,
     "",
-    "Reply within 24 hours · t.me/luminaframeworks"
+    "Reply within 24 hours · Join Us for Free (https://t.me/+XZKbCeNqQs4zZjNl)"
   ].join("\n");
 }
 
@@ -209,7 +209,7 @@ export function buildContactHtml({ name, email, interest, message }) {
                     Lumina Frameworks · Build smarter with AI
                   </td>
                   <td align="right" style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;">
-                    <a href="https://t.me/luminaframeworks" style="color:#1aa3ff;text-decoration:none;">t.me/luminaframeworks</a>
+                    <a href="https://t.me/+XZKbCeNqQs4zZjNl" style="color:#1aa3ff;text-decoration:none;">Join Us for Free</a>
                   </td>
                 </tr>
               </table>

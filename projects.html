@@ -1230,10 +1230,11 @@
         symbol: "WG",
         category: "Product",
         year: 2025,
-        image: "./assets/project-writegenius.png",
+        image: "./assets/WG.png",
         blurb: "Academic writing platform with custom-tuned LLMs for drafting, research organization, and citation workflows.",
         stack: ["Custom LLMs", "Research ops", "Citations"],
-        tags: ["llm", "education", "saas"]
+        tags: ["llm", "education", "saas"],
+        url: "https://writegeniusofficial.pages.dev/"
       },
       {
         id: "lumina-site",
@@ -1256,6 +1257,18 @@
         blurb: "Multi-step agent desk for tool calls, reasoning loops, and operator-approved actions across business workflows.",
         stack: ["Hermes agents", "Tool calling", "Guardrails"],
         tags: ["agents", "automation", "ops"]
+      },
+      {
+        id: "arefa-hermes",
+        title: "Arefa Hermes",
+        symbol: "AH",
+        category: "Agent",
+        year: 2026,
+        image: "./assets/arefapages.png",
+        blurb: "Meet Arefa. Custom-built sentient AI with intellectually savage wit and local agentic execution sub-routines.",
+        stack: ["Hermes agents", "Local LLMs", "Automation"],
+        tags: ["agents", "local-llm", "sarcasm"],
+        url: "https://arefa-profile.pages.dev/"
       },
       {
         id: "local-forge",
@@ -1468,8 +1481,12 @@
         ? `<img src="${project.image}" alt="${project.title} project visual" loading="lazy" />`
         : `<div class="project-placeholder" aria-hidden="true"><span>${project.symbol}</span></div>`;
       const stack = project.stack.slice(0, 3).map((s) => `<span class="stack-chip">${s}</span>`).join("");
+      const tag = project.url ? "a" : "article";
+      const attrs = project.url
+        ? `href="${project.url}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit;" data-cursor`
+        : "";
       return `
-        <article class="project-card frame" style="animation-delay:${Math.min(index, 8) * 45}ms">
+        <${tag} ${attrs} class="project-card frame" style="animation-delay:${Math.min(index, 8) * 45}ms">
           <div class="project-media">
             ${media}
             <div class="project-overlay">
@@ -1487,7 +1504,7 @@
               <span>${project.category.toUpperCase()} LANE</span>
             </div>
           </div>
-        </article>
+        </${tag}>
       `;
     }
 

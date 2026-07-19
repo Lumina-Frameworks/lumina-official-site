@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://luminaframeworks.pages.dev"><img src="https://img.shields.io/badge/live-luminaframeworks.pages.dev-1aa3ff?style=for-the-badge&labelColor=05060a" alt="Live site" /></a>
   <a href="https://luminaframeworks.com"><img src="https://img.shields.io/badge/domain-luminaframeworks.com-0d6fd4?style=for-the-badge&labelColor=05060a" alt="Domain" /></a>
-  <a href="https://t.me/luminaframeworks"><img src="https://img.shields.io/badge/telegram-@luminaframeworks-2AABEE?style=for-the-badge&labelColor=05060a" alt="Telegram" /></a>
+  <a href="https://t.me/+XZKbCeNqQs4zZjNl"><img src="https://img.shields.io/badge/telegram-@luminaframeworks-2AABEE?style=for-the-badge&labelColor=05060a" alt="Telegram" /></a>
 </p>
 
 <p align="center">
@@ -217,7 +217,7 @@ Visual language: geometric frames, chamfered clips, grain overlays, neural canva
 | **Aliff Ros** | Co-Founder, Business & Marketing · [Arefaros](https://github.com/Arefaros) |
 | **Amir** | Co-Founder, Tech & Development · [YoRzHe-HotaaRu](https://github.com/YoRzHe-HotaaRu) |
 
-Based in Malaysia · replies within 24 hours · [Telegram](https://t.me/luminaframeworks)
+Based in Malaysia · replies within 24 hours · [Join Us for Free](https://t.me/+XZKbCeNqQs4zZjNl)
 
 ---
 
