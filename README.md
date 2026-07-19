@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/lumina-logo.png" alt="Lumina Frameworks" width="120" />
+  <img src="./assets/lumina-logo-light.png" alt="Lumina Frameworks" width="120" />
 </p>
 
 <h1 align="center">Lumina Frameworks</h1>
@@ -14,29 +14,30 @@
 </p>
 
 <p align="center">
-  <a href="https://luminaframeworks.pages.dev"><img src="https://img.shields.io/badge/live-luminaframeworks.pages.dev-d4a056?style=for-the-badge&labelColor=0b0d11" alt="Live site" /></a>
-  <a href="https://luminaframeworks.com"><img src="https://img.shields.io/badge/domain-luminaframeworks.com-3a9e94?style=for-the-badge&labelColor=0b0d11" alt="Domain" /></a>
-  <a href="https://t.me/luminaframeworks"><img src="https://img.shields.io/badge/telegram-@luminaframeworks-2AABEE?style=for-the-badge&labelColor=0b0d11" alt="Telegram" /></a>
+  <a href="https://luminaframeworks.pages.dev"><img src="https://img.shields.io/badge/live-luminaframeworks.pages.dev-1aa3ff?style=for-the-badge&labelColor=05060a" alt="Live site" /></a>
+  <a href="https://luminaframeworks.com"><img src="https://img.shields.io/badge/domain-luminaframeworks.com-0d6fd4?style=for-the-badge&labelColor=05060a" alt="Domain" /></a>
+  <a href="https://t.me/luminaframeworks"><img src="https://img.shields.io/badge/telegram-@luminaframeworks-2AABEE?style=for-the-badge&labelColor=05060a" alt="Telegram" /></a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/stack-HTML%20%2B%20CSS%20%2B%20JS-ece8e0?style=flat-square&labelColor=12151c" alt="Stack" />
-  <img src="https://img.shields.io/badge/host-Cloudflare%20Pages-F38020?style=flat-square&labelColor=12151c" alt="Cloudflare Pages" />
-  <img src="https://img.shields.io/badge/chat-OpenRouter%20%2F%20Lumi-7ec8bf?style=flat-square&labelColor=12151c" alt="Lumi chat" />
-  <img src="https://img.shields.io/badge/theme-dark%20%2F%20light-9a6230?style=flat-square&labelColor=12151c" alt="Themes" />
+  <img src="https://img.shields.io/badge/stack-HTML%20%2B%20CSS%20%2B%20JS-eef3f8?style=flat-square&labelColor=11131c" alt="Stack" />
+  <img src="https://img.shields.io/badge/host-Cloudflare%20Pages-F38020?style=flat-square&labelColor=11131c" alt="Cloudflare Pages" />
+  <img src="https://img.shields.io/badge/chat-OpenRouter%20%2F%20Lumi-7dd9ff?style=flat-square&labelColor=11131c" alt="Lumi chat" />
+  <img src="https://img.shields.io/badge/theme-dark%20%2F%20light-0d6fd4?style=flat-square&labelColor=11131c" alt="Themes" />
 </p>
 
 ---
 
 ## Overview
 
-This repository powers the **Lumina Frameworks** marketing site: a single-page experience with Swiss-precision layout, micro-interactions, and an embedded AI concierge named **Lumi**.
+This repository powers the **Lumina Frameworks** marketing site: a single-page experience with Swiss-precision layout, micro-interactions, a boot splash, and an embedded AI concierge named **Lumi**.
 
 Visitors can explore engagement models, estimate automation ROI, browse courses, and reach the team, all from one crafted surface.
 
 | Surface | Purpose |
 | --- | --- |
-| **Hero** | Brand-first intro with live system status and CLI-style accent |
+| **Splash** | Boot sequence with theme-aware logo mark |
+| **Hero** | Brand-first intro with CLI terminal accent |
 | **Services** | DIY · DWY · DFY engagement paths |
 | **ROI Calculator** | Estimate savings from workflow automation |
 | **Courses** | Local LLMs, Hermes agents, agentic coding, and packs |
@@ -53,6 +54,17 @@ DIY ¹  Do It Yourself     courses & templates     RM29 – RM399
 DWY ²  Done With You      collaborative build     RM500 – RM2,000
 DFY ³  Done For You       full AI department      RM2K – RM100K
 ```
+
+### Courses & packs
+
+| Offering | Price |
+| --- | --- |
+| Local LLM Setup | RM39 |
+| AI Agent (Hermes) | RM49 |
+| Agentic Coding | RM49 |
+| Starter Pack | RM99 |
+| Pro Pack | RM199 |
+| Ultimate Pack | RM399 |
 
 ---
 
@@ -73,18 +85,21 @@ DFY ³  Done For You       full AI department      RM2K – RM100K
 
 ```
 lumina-official-site/
-├── index.html              # Full site (UI, motion, chat client)
-├── chat-server.mjs         # Local static + OpenRouter proxy
-├── wrangler.toml           # Cloudflare Pages project config
-├── .env.example            # Env var template (safe to commit)
+├── index.html                 # Full site (UI, motion, chat client)
+├── chat-server.mjs            # Local static + OpenRouter proxy
+├── wrangler.toml              # Cloudflare Pages project config
+├── .env.example               # Env var template (safe to commit)
 ├── functions/
 │   └── api/
-│       └── chat.js         # Production chat proxy (Pages Function)
+│       └── chat.js            # Production chat proxy (Pages Function)
 └── assets/
-    ├── lumina-logo.png
-    ├── mascot-*.png        # Lumi expressions
+    ├── lumina-logo-dark.png   # Logo for dark theme
+    ├── lumina-logo-light.png  # Logo for light theme
+    ├── lumina-mark-*.png/svg  # Favicon / mark variants
+    ├── mascot-*.png           # Lumi expressions
     ├── hero-backdrop*.png
-    └── project-*.png       # Portfolio stills
+    ├── scroll-backdrop*.png
+    └── project-*.png          # Portfolio stills
 ```
 
 ---
@@ -175,12 +190,13 @@ Both keep the OpenRouter key **server-side**, stream replies, and share the same
 
 | Token | Role |
 | --- | --- |
-| `#d4a056` | Accent gold |
-| `#3a9e94` / `#7ec8bf` | Teal signal |
-| `#0b0d11` | Dark canvas |
+| `#1aa3ff` / `#0d6fd4` | Accent blue (dark / light) |
+| `#7dd9ff` | Signal cyan |
+| `#05060a` | Dark canvas |
+| `#eef3f8` | Light canvas |
 | Syne · Chakra Petch · Outfit · IBM Plex Mono | Display / hero / body / mono |
 
-Visual language: geometric frames, chamfered clips, grain overlays, and intentional motion, not dashboard clutter.
+Visual language: geometric frames, chamfered clips, grain overlays, neural canvas motion, and theme-aware logos, not dashboard clutter.
 
 ---
 
