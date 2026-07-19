@@ -48,7 +48,7 @@
       --noise-op: 0.04;
       --cursor: #1aa3ff;
       --splash-bg: #000000;
-      --accent-grad: linear-gradient(120deg, #062a5c 0%, #0d6fd4 42%, #3db7ff 78%, #f2f9ff 100%);
+      --accent-grad: linear-gradient(120deg, #062a5c 0%, #0d6fd4 42%, #3db7ff 78%, #d9efff 100%);
     }
 
     [data-theme="light"] {
@@ -73,7 +73,7 @@
       --noise-op: 0.035;
       --cursor: #0d6fd4;
       --splash-bg: #eaf0f6;
-      --accent-grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #ffffff 100%);
+      --accent-grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #dcefff 100%);
     }
 
     [data-theme="light"] body {
@@ -300,28 +300,39 @@
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;
       padding: 0.9rem 1.35rem; font-family: var(--font-mono); font-size: 0.78rem;
-      letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid transparent;
+      letter-spacing: 0.06em; text-transform: uppercase; border: 0;
       background: transparent; color: var(--ink); cursor: none;
       clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-      transition: transform 0.3s var(--ease-out), background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s;
+      transition: transform 0.3s var(--ease-out), background 0.3s, color 0.3s, box-shadow 0.3s;
       position: relative; overflow: hidden;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
     .btn::after {
       content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, color-mix(in srgb, #fff 18%, transparent) 50%, transparent 70%);
       transform: translateX(-120%); transition: transform 0.55s var(--ease-out);
+      pointer-events: none;
     }
     .btn:hover::after { transform: translateX(120%); }
     .btn-primary {
-      background: var(--accent-grad); color: var(--on-accent); border-color: transparent;
+      background: var(--accent-grad); color: var(--on-accent);
       box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 32%, transparent); }
     .btn-secondary {
-      border-color: var(--line-strong); background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
+      background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
+      box-shadow: inset 0 0 0 1px var(--line-strong);
     }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
-    .btn-ghost { border-color: var(--line-color); }
-    .btn-ghost:hover { border-color: var(--accent-2); color: var(--accent-2); }
+    .btn-secondary:hover {
+      color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .btn-ghost { box-shadow: inset 0 0 0 1px var(--line-color); }
+    .btn-ghost:hover {
+      color: var(--accent-2);
+      box-shadow: inset 0 0 0 1px var(--accent-2);
+    }
 
     /* ---------- Header ---------- */
     .site-header {
@@ -664,10 +675,14 @@
     .price-label { display: block; font-family: var(--font-mono); font-size: 0.65rem; color: var(--ink-faint); letter-spacing: 0.06em; }
     .price-value { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; color: var(--ink); }
     .btn-card {
-      width: 100%; justify-content: space-between; border-color: var(--line-color);
+      width: 100%; justify-content: space-between;
       background: color-mix(in srgb, var(--bg-soft) 60%, transparent);
+      box-shadow: inset 0 0 0 1px var(--line-color);
     }
-    .btn-card:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-card:hover {
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
 
     /* ---------- Calculator ---------- */
     .calc-layout { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 1rem; align-items: start; }
@@ -1469,9 +1484,11 @@
     .lumi-form textarea:focus { border-color: var(--accent); }
     .lumi-send {
       width: 48px; align-self: end; height: 44px; display: grid; place-items: center;
-      border: 1px solid transparent; background: var(--accent-grad); color: var(--on-accent); cursor: none;
+      border: 0; background: var(--accent-grad); color: var(--on-accent); cursor: none;
       clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
       transition: transform 0.25s, filter 0.25s;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
     .lumi-send:hover { transform: translateY(-1px); filter: brightness(1.06); }
     .lumi-send:disabled { opacity: 0.5; pointer-events: none; }
