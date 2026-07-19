@@ -12,6 +12,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        if (sessionStorage.getItem("lumina-enter") === "archive") {
+          document.documentElement.classList.add("from-archive");
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
     :root {
       --font-display: "Syne", sans-serif;
@@ -204,6 +213,113 @@
       transition: opacity 0.8s var(--ease-out), visibility 0.8s;
     }
     #splash.is-done { opacity: 0; visibility: hidden; pointer-events: none; }
+    html.from-archive #splash {
+      display: none !important;
+    }
+    html.from-archive body.splash-lock {
+      overflow: hidden;
+    }
+
+    /* Archive → home re-entry handoff */
+    #reentry {
+      position: fixed; inset: 0; z-index: 13000;
+      display: none;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    html.from-archive #reentry {
+      display: block;
+    }
+    .reentry-stripes {
+      position: absolute; inset: 0;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+    }
+    .reentry-stripes span {
+      background: var(--bg);
+      background-image:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
+        linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-2) 25%, transparent));
+      transform: translateY(0);
+      border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .reentry-stripes span:nth-child(odd) {
+      background:
+        linear-gradient(0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 50%),
+        var(--bg-elev);
+    }
+    html.from-archive.reentry-play .reentry-stripes span {
+      animation: reentryLift 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(1) { animation-delay: 0.02s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(2) { animation-delay: 0.07s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(3) { animation-delay: 0.12s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(4) { animation-delay: 0.17s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(5) { animation-delay: 0.22s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(6) { animation-delay: 0.27s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(7) { animation-delay: 0.32s; }
+    html.from-archive.reentry-play .reentry-stripes span:nth-child(8) { animation-delay: 0.37s; }
+    @keyframes reentryLift {
+      0% { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+      70% { opacity: 1; }
+      100% { transform: translateY(-108%) scaleY(1.05); opacity: 0; filter: blur(2px); }
+    }
+    .reentry-scan {
+      position: absolute; left: -10%; right: -10%; height: 18%;
+      top: 42%;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+    html.from-archive.reentry-play .reentry-scan {
+      animation: reentryScan 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+    @keyframes reentryScan {
+      0% { transform: translateY(-180%); opacity: 0; }
+      25% { opacity: 0.9; }
+      100% { transform: translateY(220%); opacity: 0; }
+    }
+    .reentry-core {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      z-index: 2;
+      opacity: 1;
+      transition: opacity 0.35s ease;
+    }
+    html.from-archive.reentry-done .reentry-core { opacity: 0; }
+    .reentry-status {
+      font-family: var(--font-mono);
+      font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+      letter-spacing: 0.14em;
+      color: var(--accent-3);
+      text-align: center;
+      padding: 0.85rem 1.1rem;
+      border: 1px solid var(--line-strong);
+      background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+      backdrop-filter: blur(10px);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .reentry-status em {
+      display: block;
+      margin-top: 0.35rem;
+      font-style: normal;
+      color: var(--ink-soft);
+      letter-spacing: 0.08em;
+      font-size: 0.78em;
+    }
+    html.from-archive.reentry-done #reentry {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease, visibility 0.4s;
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html.from-archive .reentry-stripes span,
+      html.from-archive .reentry-scan {
+        animation: none !important;
+      }
+    }
     .splash-inner { width: min(520px, 88vw); text-align: center; }
     .splash-logo-wrap {
       width: min(220px, 58vw); height: auto; aspect-ratio: 1 / 1.02;
@@ -1626,6 +1742,21 @@
     </div>
   </div>
 
+  <!-- ARCHIVE RE-ENTRY -->
+  <div id="reentry" aria-hidden="true">
+    <div class="reentry-stripes" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="reentry-scan" aria-hidden="true"></div>
+    <div class="reentry-core">
+      <div class="reentry-status mono" id="reentry-status">
+        // ARCHIVE_HANDOFF
+        <em>relinking lumina core</em>
+      </div>
+    </div>
+  </div>
+
   <header class="site-header" id="site-header">
     <div class="wrap nav-row">
       <a href="#hero" class="brand" data-cursor aria-label="Lumina Frameworks home">
@@ -2256,9 +2387,11 @@
 
       themeToggle?.addEventListener("click", () => swapTheme(themeToggle));
 
-      /* ---------- Splash ---------- */
+      /* ---------- Splash / archive re-entry ---------- */
       const splash = document.getElementById("splash");
       const splashStatus = document.getElementById("splash-status");
+      const reentryStatus = document.getElementById("reentry-status");
+      const fromArchive = html.classList.contains("from-archive");
       const bootLines = [
         "// BOOT_SEQUENCE_INIT",
         "// LOADING_NEURAL_MESH",
@@ -2266,25 +2399,70 @@
         "// SYS.AI_INIT_OK",
         "// WELCOME_ABOARD"
       ];
-      let bootIdx = 0;
-      const bootTimer = setInterval(() => {
-        bootIdx = Math.min(bootIdx + 1, bootLines.length - 1);
-        splashStatus.style.opacity = "0";
-        setTimeout(() => {
-          splashStatus.textContent = bootLines[bootIdx];
-          splashStatus.style.opacity = "1";
-        }, 120);
-        if (bootIdx === bootLines.length - 1) clearInterval(bootTimer);
-      }, 420);
+      const reentryLines = [
+        ["// ARCHIVE_HANDOFF", "relinking lumina core"],
+        ["// MESH_SYNC", "pulling live site state"],
+        ["// CORE_RELINKED", "welcome back"]
+      ];
 
-      window.addEventListener("load", () => {
-        setTimeout(() => {
-          splash.classList.add("is-done");
-          body.classList.remove("splash-lock");
-          splitHeroTitle();
-          document.querySelectorAll(".stats-bar .reveal").forEach((el) => el.classList.add("is-in"));
-        }, 2600);
-      });
+      const finishEntry = () => {
+        body.classList.remove("splash-lock");
+        splitHeroTitle();
+        document.querySelectorAll(".stats-bar .reveal").forEach((el) => el.classList.add("is-in"));
+        if (location.hash) {
+          const target = document.querySelector(location.hash);
+          if (target) {
+            requestAnimationFrame(() => {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          }
+        }
+      };
+
+      if (fromArchive) {
+        try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
+        splash?.classList.add("is-done");
+        let reIdx = 0;
+        const paintReentry = () => {
+          const [title, sub] = reentryLines[reIdx];
+          if (reentryStatus) {
+            reentryStatus.innerHTML = `${title}<em>${sub}</em>`;
+          }
+        };
+        paintReentry();
+        requestAnimationFrame(() => html.classList.add("reentry-play"));
+        const reTimer = setInterval(() => {
+          reIdx = Math.min(reIdx + 1, reentryLines.length - 1);
+          paintReentry();
+          if (reIdx === reentryLines.length - 1) clearInterval(reTimer);
+        }, 280);
+        window.setTimeout(() => {
+          html.classList.add("reentry-done");
+          finishEntry();
+          window.setTimeout(() => {
+            html.classList.remove("from-archive", "reentry-play", "reentry-done");
+            document.getElementById("reentry")?.remove();
+          }, 450);
+        }, 1100);
+      } else {
+        let bootIdx = 0;
+        const bootTimer = setInterval(() => {
+          bootIdx = Math.min(bootIdx + 1, bootLines.length - 1);
+          splashStatus.style.opacity = "0";
+          setTimeout(() => {
+            splashStatus.textContent = bootLines[bootIdx];
+            splashStatus.style.opacity = "1";
+          }, 120);
+          if (bootIdx === bootLines.length - 1) clearInterval(bootTimer);
+        }, 420);
+
+        window.addEventListener("load", () => {
+          setTimeout(() => {
+            splash.classList.add("is-done");
+            finishEntry();
+          }, 2600);
+        });
+      }
 
       /* ---------- Custom cursor ---------- */
       const cursor = document.querySelector(".cursor");

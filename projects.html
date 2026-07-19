@@ -680,6 +680,58 @@
       .control-peek { display: none !important; }
     }
 
+    /* Exit handoff back to home */
+    #archive-exit {
+      position: fixed; inset: 0; z-index: 20000;
+      display: none; pointer-events: none; overflow: hidden;
+    }
+    #archive-exit.is-on { display: block; pointer-events: auto; }
+    .archive-exit-stripes {
+      position: absolute; inset: 0;
+      display: grid; grid-template-columns: repeat(8, 1fr);
+    }
+    .archive-exit-stripes span {
+      background: var(--bg-elev);
+      transform: translateY(110%);
+      border-right: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    #archive-exit.is-on .archive-exit-stripes span {
+      animation: archiveDropIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(1) { animation-delay: 0.02s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(2) { animation-delay: 0.06s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(3) { animation-delay: 0.1s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(4) { animation-delay: 0.14s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(5) { animation-delay: 0.18s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(6) { animation-delay: 0.22s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(7) { animation-delay: 0.26s; }
+    #archive-exit.is-on .archive-exit-stripes span:nth-child(8) { animation-delay: 0.3s; }
+    @keyframes archiveDropIn {
+      from { transform: translateY(110%); }
+      to { transform: translateY(0); }
+    }
+    .archive-exit-status {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      color: var(--accent-3);
+      opacity: 0;
+      text-transform: uppercase;
+    }
+    #archive-exit.is-on .archive-exit-status {
+      animation: archiveStatusIn 0.35s ease 0.2s forwards;
+    }
+    @keyframes archiveStatusIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #archive-exit .archive-exit-stripes span,
+      #archive-exit .archive-exit-status { animation: none !important; opacity: 1; transform: none; }
+    }
+
     /* Archive */
     .archive {
       padding: clamp(2rem, 5vw, 3.25rem) 0 clamp(4rem, 8vw, 6rem);
@@ -813,6 +865,14 @@
   <div class="cursor-ring" aria-hidden="true"></div>
   <canvas id="neural-canvas" aria-hidden="true"></canvas>
   <div class="scroll-texture" aria-hidden="true"></div>
+
+  <div id="archive-exit" aria-hidden="true">
+    <div class="archive-exit-stripes">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="archive-exit-status">// Returning to core</div>
+  </div>
 
   <header class="site-header" id="site-header">
     <div class="wrap nav-row">
@@ -989,6 +1049,31 @@
       });
     }
     bindCursorHover();
+
+    /* Handoff back to index with exit wipe (skips splash on arrival) */
+    const archiveExit = document.getElementById("archive-exit");
+    let handoffLocked = false;
+    function goHomeWithHandoff(href) {
+      if (handoffLocked) return;
+      handoffLocked = true;
+      try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduce || !archiveExit) {
+        window.location.href = href;
+        return;
+      }
+      archiveExit.classList.add("is-on");
+      window.setTimeout(() => {
+        window.location.href = href;
+      }, 720);
+    }
+    document.querySelectorAll('a[href*="index.html"]').forEach((a) => {
+      a.addEventListener("click", (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === "_blank") return;
+        e.preventDefault();
+        goHomeWithHandoff(a.href);
+      });
+    });
 
     const PROJECTS = [
       {
