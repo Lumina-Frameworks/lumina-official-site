@@ -320,6 +320,59 @@
         animation: none !important;
       }
     }
+
+    /* Home → archive exit handoff */
+    #archive-depart {
+      position: fixed; inset: 0; z-index: 14000;
+      display: none; pointer-events: none; overflow: hidden;
+    }
+    #archive-depart.is-on { display: block; pointer-events: auto; }
+    .archive-depart-stripes {
+      position: absolute; inset: 0;
+      display: grid; grid-template-columns: repeat(8, 1fr);
+    }
+    .archive-depart-stripes span {
+      background: var(--bg-elev);
+      transform: translateY(110%);
+      border-right: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    #archive-depart.is-on .archive-depart-stripes span {
+      animation: archiveDropIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(1) { animation-delay: 0.02s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(2) { animation-delay: 0.06s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(3) { animation-delay: 0.1s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(4) { animation-delay: 0.14s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(5) { animation-delay: 0.18s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(6) { animation-delay: 0.22s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(7) { animation-delay: 0.26s; }
+    #archive-depart.is-on .archive-depart-stripes span:nth-child(8) { animation-delay: 0.3s; }
+    @keyframes archiveDropIn {
+      from { transform: translateY(110%); }
+      to { transform: translateY(0); }
+    }
+    .archive-depart-status {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      color: var(--accent-3);
+      opacity: 0;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+    #archive-depart.is-on .archive-depart-status {
+      animation: archiveStatusIn 0.35s ease 0.2s forwards;
+    }
+    @keyframes archiveStatusIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #archive-depart .archive-depart-stripes span,
+      #archive-depart .archive-depart-status { animation: none !important; opacity: 1; transform: none; }
+    }
     .splash-inner { width: min(520px, 88vw); text-align: center; }
     .splash-logo-wrap {
       width: min(220px, 58vw); height: auto; aspect-ratio: 1 / 1.02;
@@ -1757,6 +1810,15 @@
     </div>
   </div>
 
+  <!-- HOME → ARCHIVE DEPART -->
+  <div id="archive-depart" aria-hidden="true">
+    <div class="archive-depart-stripes">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="archive-depart-status mono">// Entering archive</div>
+  </div>
+
   <header class="site-header" id="site-header">
     <div class="wrap nav-row">
       <a href="#hero" class="brand" data-cursor aria-label="Lumina Frameworks home">
@@ -2387,6 +2449,31 @@
 
       themeToggle?.addEventListener("click", () => swapTheme(themeToggle));
 
+      /* ---------- Depart to projects archive ---------- */
+      const archiveDepart = document.getElementById("archive-depart");
+      let departLocked = false;
+      function goArchiveWithHandoff(href) {
+        if (departLocked) return;
+        departLocked = true;
+        try { sessionStorage.setItem("lumina-enter", "projects"); } catch (_) {}
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduce || !archiveDepart) {
+          window.location.href = href;
+          return;
+        }
+        archiveDepart.classList.add("is-on");
+        window.setTimeout(() => {
+          window.location.href = href;
+        }, 720);
+      }
+      document.querySelectorAll('a[href*="projects.html"]').forEach((a) => {
+        a.addEventListener("click", (e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === "_blank") return;
+          e.preventDefault();
+          goArchiveWithHandoff(a.href);
+        });
+      });
+
       /* ---------- Splash / archive re-entry ---------- */
       const splash = document.getElementById("splash");
       const splashStatus = document.getElementById("splash-status");
@@ -2405,9 +2492,9 @@
         ["// CORE_RELINKED", "welcome back"]
       ];
 
-      const finishEntry = () => {
+      const finishEntry = (opts = {}) => {
         body.classList.remove("splash-lock");
-        splitHeroTitle();
+        if (!opts.skipTitle) splitHeroTitle(opts);
         document.querySelectorAll(".stats-bar .reveal").forEach((el) => el.classList.add("is-in"));
         if (location.hash) {
           const target = document.querySelector(location.hash);
@@ -2422,6 +2509,11 @@
       if (fromArchive) {
         try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
         splash?.classList.add("is-done");
+        // Start hero title immediately so it is mid/complete as stripes lift
+        requestAnimationFrame(() => {
+          splitHeroTitle({ fast: true });
+          html.classList.add("reentry-play");
+        });
         let reIdx = 0;
         const paintReentry = () => {
           const [title, sub] = reentryLines[reIdx];
@@ -2430,20 +2522,19 @@
           }
         };
         paintReentry();
-        requestAnimationFrame(() => html.classList.add("reentry-play"));
         const reTimer = setInterval(() => {
           reIdx = Math.min(reIdx + 1, reentryLines.length - 1);
           paintReentry();
           if (reIdx === reentryLines.length - 1) clearInterval(reTimer);
-        }, 280);
+        }, 220);
         window.setTimeout(() => {
           html.classList.add("reentry-done");
-          finishEntry();
+          finishEntry({ skipTitle: true });
           window.setTimeout(() => {
             html.classList.remove("from-archive", "reentry-play", "reentry-done");
             document.getElementById("reentry")?.remove();
-          }, 450);
-        }, 1100);
+          }, 350);
+        }, 780);
       } else {
         let bootIdx = 0;
         const bootTimer = setInterval(() => {
@@ -2529,10 +2620,14 @@
       document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
 
       /* ---------- Hero title split (word-safe) ---------- */
-      function splitHeroTitle() {
+      function splitHeroTitle(opts = {}) {
         const title = document.getElementById("hero-title");
         if (!title || title.dataset.split) return;
         title.dataset.split = "1";
+        const fast = !!opts.fast;
+        const step = fast ? 0.016 : 0.035;
+        const base = fast ? 0.02 : 0.08;
+        const lineGap = fast ? 0.05 : 0.12;
         let charIndex = 0;
         title.querySelectorAll(".line[data-word]").forEach((line, lineIdx) => {
           const wordText = line.dataset.word || "";
@@ -2541,7 +2636,7 @@
           [...wordText].forEach((ch) => {
             const char = document.createElement("span");
             char.className = "char";
-            char.style.animationDelay = `${0.035 * charIndex + 0.08 + lineIdx * 0.12}s`;
+            char.style.animationDelay = `${step * charIndex + base + lineIdx * lineGap}s`;
             char.textContent = ch;
             word.appendChild(char);
             charIndex += 1;

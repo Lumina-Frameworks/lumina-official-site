@@ -11,6 +11,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        if (sessionStorage.getItem("lumina-enter") === "projects") {
+          document.documentElement.classList.add("from-core");
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
     :root {
       --font-display: "Syne", sans-serif;
@@ -732,6 +741,99 @@
       #archive-exit .archive-exit-status { animation: none !important; opacity: 1; transform: none; }
     }
 
+    /* Core → archive re-entry */
+    html.from-core body { overflow: hidden; }
+    #archive-enter {
+      position: fixed; inset: 0; z-index: 20000;
+      display: none; pointer-events: none; overflow: hidden;
+    }
+    html.from-core #archive-enter { display: block; pointer-events: auto; }
+    .archive-enter-stripes {
+      position: absolute; inset: 0;
+      display: grid; grid-template-columns: repeat(8, 1fr);
+    }
+    .archive-enter-stripes span {
+      background: var(--bg);
+      background-image:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
+        linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-2) 25%, transparent));
+      transform: translateY(0);
+      border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .archive-enter-stripes span:nth-child(odd) {
+      background:
+        linear-gradient(0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 50%),
+        var(--bg-elev);
+    }
+    html.from-core.enter-play .archive-enter-stripes span {
+      animation: archiveEnterLift 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(1) { animation-delay: 0.02s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(2) { animation-delay: 0.07s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(3) { animation-delay: 0.12s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(4) { animation-delay: 0.17s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(5) { animation-delay: 0.22s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(6) { animation-delay: 0.27s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(7) { animation-delay: 0.32s; }
+    html.from-core.enter-play .archive-enter-stripes span:nth-child(8) { animation-delay: 0.37s; }
+    @keyframes archiveEnterLift {
+      0% { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+      70% { opacity: 1; }
+      100% { transform: translateY(-108%) scaleY(1.05); opacity: 0; filter: blur(2px); }
+    }
+    .archive-enter-scan {
+      position: absolute; left: -10%; right: -10%; height: 18%; top: 42%;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+    html.from-core.enter-play .archive-enter-scan {
+      animation: archiveEnterScan 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+    @keyframes archiveEnterScan {
+      0% { transform: translateY(-180%); opacity: 0; }
+      25% { opacity: 0.9; }
+      100% { transform: translateY(220%); opacity: 0; }
+    }
+    .archive-enter-core {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      z-index: 2;
+      transition: opacity 0.35s ease;
+    }
+    html.from-core.enter-done .archive-enter-core { opacity: 0; }
+    .archive-enter-status {
+      font-family: var(--font-mono);
+      font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+      letter-spacing: 0.14em;
+      color: var(--accent-3);
+      text-align: center;
+      padding: 0.85rem 1.1rem;
+      border: 1px solid var(--line-strong);
+      background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+      backdrop-filter: blur(10px);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .archive-enter-status em {
+      display: block;
+      margin-top: 0.35rem;
+      font-style: normal;
+      color: var(--ink-soft);
+      letter-spacing: 0.08em;
+      font-size: 0.78em;
+    }
+    html.from-core.enter-done #archive-enter {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease, visibility 0.4s;
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html.from-core .archive-enter-stripes span,
+      html.from-core .archive-enter-scan { animation: none !important; }
+    }
+
     /* Archive */
     .archive {
       padding: clamp(2rem, 5vw, 3.25rem) 0 clamp(4rem, 8vw, 6rem);
@@ -872,6 +974,20 @@
       <span></span><span></span><span></span><span></span>
     </div>
     <div class="archive-exit-status">// Returning to core</div>
+  </div>
+
+  <div id="archive-enter" aria-hidden="true">
+    <div class="archive-enter-stripes">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="archive-enter-scan" aria-hidden="true"></div>
+    <div class="archive-enter-core">
+      <div class="archive-enter-status mono" id="archive-enter-status">
+        // ENTERING_ARCHIVE
+        <em>indexing project lattice</em>
+      </div>
+    </div>
   </div>
 
   <header class="site-header" id="site-header">
@@ -1025,6 +1141,7 @@
 
   <script>
     const body = document.body;
+    const html = document.documentElement;
 
     /* Custom cursor */
     const cursor = document.querySelector(".cursor");
@@ -1074,6 +1191,37 @@
         goHomeWithHandoff(a.href);
       });
     });
+
+    /* Arrive from home with re-entry wipe */
+    if (html.classList.contains("from-core")) {
+      try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
+      const enterStatus = document.getElementById("archive-enter-status");
+      const enterLines = [
+        ["// ENTERING_ARCHIVE", "indexing project lattice"],
+        ["// LANE_SYNC", "loading filters and builds"],
+        ["// ARCHIVE_ONLINE", "browse when ready"]
+      ];
+      let enterIdx = 0;
+      const paintEnter = () => {
+        const [title, sub] = enterLines[enterIdx];
+        if (enterStatus) enterStatus.innerHTML = `${title}<em>${sub}</em>`;
+      };
+      paintEnter();
+      requestAnimationFrame(() => html.classList.add("enter-play"));
+      const enterTimer = setInterval(() => {
+        enterIdx = Math.min(enterIdx + 1, enterLines.length - 1);
+        paintEnter();
+        if (enterIdx === enterLines.length - 1) clearInterval(enterTimer);
+      }, 280);
+      window.setTimeout(() => {
+        html.classList.add("enter-done");
+        document.body.style.overflow = "";
+        window.setTimeout(() => {
+          html.classList.remove("from-core", "enter-play", "enter-done");
+          document.getElementById("archive-enter")?.remove();
+        }, 450);
+      }, 1100);
+    }
 
     const PROJECTS = [
       {
@@ -1169,7 +1317,6 @@
     const CATEGORIES = ["All", ...Array.from(new Set(PROJECTS.map((p) => p.category)))];
     const YEARS = Array.from(new Set(PROJECTS.map((p) => p.year)));
 
-    const html = document.documentElement;
     const savedTheme = localStorage.getItem("lumina-theme");
     if (savedTheme === "light" || savedTheme === "dark") html.setAttribute("data-theme", savedTheme);
 
