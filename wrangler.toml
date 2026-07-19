@@ -5,4 +5,4 @@ pages_build_output_dir = "."
 [vars]
 OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"
 OPENROUTER_REASONING = "medium"
-SITE_URL = "https://luminaframeworks.pages.dev"
+SITE_URL = "https://lumina-frameworks.com"
