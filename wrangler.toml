@@ -1,0 +1,8 @@
+name = "lumina-main-site-v4"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = "."
+
+[vars]
+OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"
+OPENROUTER_REASONING = "medium"
+SITE_URL = "https://luminaframeworks.pages.dev"
