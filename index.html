@@ -2557,7 +2557,9 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(data?.error || "Transmission failed.");
+            const detail = typeof data?.detail === "string" ? data.detail : "";
+            const msg = data?.error || "Transmission failed.";
+            throw new Error(detail && detail.length < 220 ? `${msg} (${detail})` : msg);
           }
           formStatus.className = "form-status ok";
           formStatus.textContent = "[SUCCESS] Message received. We'll reply within 24 hours.";

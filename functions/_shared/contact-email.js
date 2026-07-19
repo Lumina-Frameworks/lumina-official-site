@@ -259,12 +259,24 @@ export async function sendContactEmail(env, payload) {
       html,
       text
     })
+  }).catch((fetchErr) => {
+    const err = new Error(`Could not reach Resend: ${String(fetchErr?.message || fetchErr)}`);
+    err.status = 500;
+    throw err;
   });
 
   const detail = await upstream.text().catch(() => "");
   if (!upstream.ok) {
-    const err = new Error("Failed to deliver transmission.");
-    err.status = 502;
+    let resendMessage = "Failed to deliver transmission.";
+    try {
+      const parsed = JSON.parse(detail || "{}");
+      if (parsed?.message) resendMessage = String(parsed.message);
+    } catch {
+      /* keep default */
+    }
+    const err = new Error(resendMessage);
+    // Avoid HTTP 502: Cloudflare proxies rewrite origin 502s into a generic gateway page.
+    err.status = 500;
     err.detail = detail.slice(0, 800);
     throw err;
   }
