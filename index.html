@@ -50,26 +50,26 @@
     }
 
     [data-theme="light"] {
-      --bg: #c9c4b8;
-      --bg-elev: #d5d0c4;
-      --bg-panel: #ddd8cc;
-      --bg-soft: #e2ddd1;
-      --ink: #1c1f27;
-      --ink-soft: #4a4e58;
-      --ink-faint: #6f7480;
-      --line-color: rgba(40, 55, 58, 0.18);
-      --line-strong: rgba(40, 55, 58, 0.35);
-      --accent: #9a6230;
-      --accent-2: #1f6f68;
-      --accent-3: #2a8a80;
-      --success: #2f7a4a;
-      --danger: #a63d3d;
-      --hero-overlay: linear-gradient(120deg, rgba(201,196,184,0.94) 0%, rgba(201,196,184,0.78) 48%, rgba(201,196,184,0.9) 100%);
-      --scroll-veil: rgba(201, 196, 184, 0.78);
-      --shadow: 0 18px 40px rgba(40, 40, 30, 0.12);
-      --noise-op: 0.06;
-      --cursor: #9a6230;
-      --splash-bg: #bdb8ac;
+      --bg: #f2efe8;
+      --bg-elev: #ebe7de;
+      --bg-panel: #faf8f3;
+      --bg-soft: #f6f3ec;
+      --ink: #16141a;
+      --ink-soft: #524c45;
+      --ink-faint: #82796e;
+      --line-color: rgba(170, 125, 45, 0.22);
+      --line-strong: rgba(170, 125, 45, 0.48);
+      --accent: #b8862e;
+      --accent-2: #2a8a82;
+      --accent-3: #3aa89e;
+      --success: #1f8a4c;
+      --danger: #c44545;
+      --hero-overlay: linear-gradient(120deg, rgba(242,239,232,0.94) 0%, rgba(242,239,232,0.72) 48%, rgba(242,239,232,0.9) 100%);
+      --scroll-veil: rgba(242, 239, 232, 0.55);
+      --shadow: 0 20px 48px rgba(40, 32, 18, 0.08);
+      --noise-op: 0.035;
+      --cursor: #b8862e;
+      --splash-bg: #ebe7de;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -228,11 +228,19 @@
       background-size: 720px; background-repeat: repeat;
       opacity: 0; mix-blend-mode: soft-light;
       animation: textureDrift 48s linear infinite;
-      transition: opacity 1s ease;
+      transition: opacity 1s ease, filter 1s ease;
+      filter: blur(0);
     }
-    body.show-neural .scroll-texture { opacity: 0.22; }
-    [data-theme="light"] .scroll-texture { mix-blend-mode: multiply; opacity: 0; }
-    body.show-neural[data-theme="light"] .scroll-texture { opacity: 0.18; }
+    body.show-neural .scroll-texture {
+      opacity: 0.18;
+      filter: blur(1.5px);
+    }
+    [data-theme="light"] .scroll-texture { mix-blend-mode: soft-light; opacity: 0; }
+    body.show-neural[data-theme="light"] .scroll-texture {
+      opacity: 0.16;
+      filter: blur(2px);
+      mix-blend-mode: soft-light;
+    }
     @keyframes textureDrift {
       from { background-position: 0 0; }
       to { background-position: 720px 420px; }
@@ -1077,28 +1085,112 @@
     }
 
     /* ---------- Chatbot: Lumi ---------- */
-    .lumi-launcher {
+    .lumi-dock {
       position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 850;
-      width: 76px; height: 76px; padding: 0; border: 1px solid var(--line-strong);
-      background: var(--bg-panel); cursor: none; overflow: hidden;
-      clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
-      box-shadow: var(--shadow);
-      transition: transform 0.3s var(--ease-out), border-color 0.25s;
+      width: 78px; height: 78px;
+      transition: opacity 0.3s, visibility 0.3s, transform 0.3s var(--ease-out);
+      animation: lumiLauncherIn 0.65s var(--ease-out) 2.8s both;
     }
-    .lumi-launcher:hover { transform: translateY(-3px); border-color: var(--accent); }
-    .lumi-launcher img {
-      width: 100%; height: 100%; object-fit: cover; object-position: center 12%;
+    @keyframes lumiLauncherIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.94); }
+      to { opacity: 1; transform: none; }
+    }
+    .lumi-dock.is-hidden {
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transform: scale(0.9) translateY(8px);
+    }
+    .lumi-launcher {
+      position: absolute; inset: 0; z-index: 1;
+      width: 100%; height: 100%; padding: 0; border: 0;
+      background: transparent; cursor: none; overflow: hidden;
+      clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+      box-shadow: var(--shadow);
+      transition: transform 0.3s var(--ease-out);
+    }
+    .lumi-dock:hover .lumi-launcher { transform: translateY(-3px); }
+    .lumi-launcher-face {
+      position: absolute; inset: 0;
+      background: #0d1016;
+      border: 1px solid var(--line-strong);
+      overflow: hidden;
+      transition: border-color 0.25s;
+    }
+    .lumi-dock:hover .lumi-launcher-face { border-color: var(--accent); }
+    .lumi-launcher-face img {
+      width: 100%; height: 100%; object-fit: cover; object-position: center 10%;
       display: block; transform: scale(1.08);
+      animation: lumiFaceWave 3.8s ease-in-out infinite;
+    }
+    @keyframes lumiFaceWave {
+      0%, 100% { transform: scale(1.08) translateY(0); }
+      50% { transform: scale(1.08) translateY(-2px); }
     }
     .lumi-launcher .pulse-ring {
-      position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-      animation: lumiRing 2.4s ease-out infinite; pointer-events: none;
+      position: absolute; inset: 3px; z-index: 1; pointer-events: none;
+      border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      animation: lumiRing 2.4s ease-out infinite;
     }
     @keyframes lumiRing {
       0% { transform: scale(1); opacity: 0.7; }
-      100% { transform: scale(1.35); opacity: 0; }
+      100% { transform: scale(1.22); opacity: 0; }
     }
-    .lumi-launcher.is-hidden { opacity: 0; pointer-events: none; transform: scale(0.85); }
+    .lumi-launcher-dot {
+      position: absolute; top: 7px; right: 7px; z-index: 2;
+      width: 9px; height: 9px; background: var(--success);
+      box-shadow: 0 0 0 2px #0d1016;
+      animation: livePulse 1.8s infinite;
+      pointer-events: none;
+    }
+    .lumi-bubble {
+      position: absolute; right: 0; bottom: calc(100% + 12px); z-index: 2;
+      width: max-content; max-width: min(200px, calc(100vw - 2.5rem));
+      padding: 0.65rem 0.8rem 0.7rem;
+      background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--line-strong);
+      color: var(--ink); text-align: left;
+      font: inherit;
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      box-shadow: var(--shadow);
+      cursor: none;
+      transform-origin: bottom right;
+      animation: lumiBubbleIn 0.55s var(--ease-out) 3.15s both;
+      transition: border-color 0.25s, transform 0.3s var(--ease-out);
+    }
+    .lumi-dock:hover .lumi-bubble { border-color: var(--accent); transform: translateY(-2px); }
+    @keyframes lumiBubbleIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.96); }
+      to { opacity: 1; transform: none; }
+    }
+    .lumi-bubble::after {
+      content: ""; position: absolute; right: 24px; bottom: -6px;
+      width: 11px; height: 11px;
+      background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+      border-right: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+      transform: rotate(45deg);
+    }
+    .lumi-bubble-label {
+      display: block; margin-bottom: 0.25rem;
+      font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.08em;
+      color: var(--accent-3); text-transform: uppercase;
+    }
+    .lumi-bubble-text {
+      display: block; min-height: 2.4em;
+      font-family: var(--font-body); font-size: 0.8rem; line-height: 1.35;
+      color: var(--ink); font-weight: 500;
+    }
+    .lumi-bubble-text.is-out { animation: lumiLineOut 0.28s ease forwards; }
+    .lumi-bubble-text.is-in { animation: lumiLineIn 0.35s var(--ease-out) forwards; }
+    @keyframes lumiLineOut {
+      to { opacity: 0; transform: translateY(-6px); }
+    }
+    @keyframes lumiLineIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
 
     .lumi-panel {
       position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 860;
@@ -1253,7 +1345,12 @@
     .lumi-send svg { width: 18px; height: 18px; }
 
     @media (max-width: 640px) {
-      .lumi-launcher { right: 0.85rem; bottom: 0.85rem; width: 64px; height: 64px; }
+      .lumi-dock { right: 0.85rem; bottom: 0.85rem; width: 68px; height: 68px; }
+      .lumi-bubble {
+        max-width: min(168px, calc(100vw - 5.5rem));
+        padding: 0.55rem 0.7rem 0.6rem;
+      }
+      .lumi-bubble-text { font-size: 0.74rem; min-height: 2.2em; }
       .lumi-panel {
         right: 0.5rem; left: 0.5rem; bottom: 0.5rem; width: auto;
         height: min(78vh, calc(100vh - 4.5rem));
@@ -1800,10 +1897,19 @@
   </div>
 
   <!-- Lumi Chatbot -->
-  <button class="lumi-launcher" id="lumi-launcher" aria-label="Open Lumi chat assistant" data-cursor>
-    <span class="pulse-ring" aria-hidden="true"></span>
-    <img src="./assets/mascot-wave.png" alt="" width="72" height="72" />
-  </button>
+  <div class="lumi-dock" id="lumi-dock">
+    <button class="lumi-bubble" id="lumi-bubble" type="button" aria-label="Chat with Lumi" data-cursor>
+      <span class="lumi-bubble-label">Lumi</span>
+      <span class="lumi-bubble-text" id="lumi-bubble-text">Need a quick path?</span>
+    </button>
+    <button class="lumi-launcher" id="lumi-launcher" aria-label="Chat with Lumi, Lumina Frameworks guide" data-cursor>
+      <span class="lumi-launcher-face">
+        <span class="pulse-ring" aria-hidden="true"></span>
+        <span class="lumi-launcher-dot" aria-hidden="true"></span>
+        <img src="./assets/mascot-wave.png" alt="" width="78" height="78" />
+      </span>
+    </button>
+  </div>
 
   <aside class="lumi-panel" id="lumi-panel" aria-label="Lumi chat" aria-hidden="true">
     <div class="lumi-head">
@@ -2280,8 +2386,8 @@
       function themeColors() {
         const dark = html.getAttribute("data-theme") === "dark";
         return dark
-          ? { node: "rgba(212,160,86,0.75)", line: "rgba(58,158,148,0.22)", glow: "rgba(212,160,86,0.12)" }
-          : { node: "rgba(154,98,48,0.7)", line: "rgba(31,111,104,0.2)", glow: "rgba(31,111,104,0.08)" };
+          ? { node: "rgba(212,160,86,0.75)", line: "rgba(58,158,148,0.28)", glow: "rgba(212,160,86,0.12)" }
+          : { node: "rgba(184,134,46,0.85)", line: "rgba(42,138,130,0.32)", glow: "rgba(42,138,130,0.12)" };
       }
 
       function draw() {
@@ -2329,7 +2435,9 @@
         happy: "./assets/mascot-happy.png"
       };
 
+      const dock = document.getElementById("lumi-dock");
       const launcher = document.getElementById("lumi-launcher");
+      const bubbleBtn = document.getElementById("lumi-bubble");
       const panel = document.getElementById("lumi-panel");
       const closeBtn = document.getElementById("lumi-close");
       const avatar = document.getElementById("lumi-avatar");
@@ -2339,10 +2447,42 @@
       const input = document.getElementById("lumi-input");
       const sendBtn = form.querySelector(".lumi-send");
       const quick = document.getElementById("lumi-quick");
+      const bubbleText = document.getElementById("lumi-bubble-text");
 
       const history = [];
       let busy = false;
       let greeted = false;
+
+      const bubbleLines = [
+        "Need a quick path?",
+        "DIY, DWY, or DFY?",
+        "Ask me about courses.",
+        "Want an ROI estimate?",
+        "I can guide you."
+      ];
+      let bubbleIdx = 0;
+      let bubbleTimer = 0;
+
+      const cycleBubble = () => {
+        if (!bubbleText || dock.classList.contains("is-hidden")) return;
+        bubbleText.classList.remove("is-in");
+        bubbleText.classList.add("is-out");
+        setTimeout(() => {
+          bubbleIdx = (bubbleIdx + 1) % bubbleLines.length;
+          bubbleText.textContent = bubbleLines[bubbleIdx];
+          bubbleText.classList.remove("is-out");
+          bubbleText.classList.add("is-in");
+        }, 280);
+      };
+
+      const startBubbleCycle = () => {
+        clearInterval(bubbleTimer);
+        bubbleTimer = window.setInterval(cycleBubble, 3200);
+      };
+
+      const stopBubbleCycle = () => clearInterval(bubbleTimer);
+
+      window.setTimeout(startBubbleCycle, 4200);
 
       const setSprite = (key, cls = "") => {
         avatar.src = SPRITES[key] || SPRITES.idle;
@@ -2354,7 +2494,8 @@
       const openChat = () => {
         panel.classList.add("is-open");
         panel.setAttribute("aria-hidden", "false");
-        launcher.classList.add("is-hidden");
+        dock.classList.add("is-hidden");
+        stopBubbleCycle();
         setSprite("wave");
         setStatus("// GUIDE_ONLINE");
         if (!greeted) {
@@ -2371,12 +2512,14 @@
       const closeChat = () => {
         panel.classList.remove("is-open");
         panel.setAttribute("aria-hidden", "true");
-        launcher.classList.remove("is-hidden");
+        dock.classList.remove("is-hidden");
         setSprite("wave");
         launcher.querySelector("img").src = SPRITES.wave;
+        startBubbleCycle();
       };
 
       launcher.addEventListener("click", openChat);
+      bubbleBtn.addEventListener("click", openChat);
       closeBtn.addEventListener("click", closeChat);
 
       const escapeHtml = (str) =>
