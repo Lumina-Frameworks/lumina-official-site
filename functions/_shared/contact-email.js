@@ -237,17 +237,12 @@ export async function sendContactEmail(env, payload) {
     throw err;
   }
 
-  const from = String(env.CONTACT_FROM || "").trim();
-  if (!from) {
+  const from = String(
+    env.CONTACT_FROM || "Lumina Frameworks <noreply@lumina-frameworks.com>"
+  ).trim();
+  if (!/lumina-frameworks\.com/i.test(from)) {
     const err = new Error(
-      "Missing CONTACT_FROM. Set it in Cloudflare to e.g. Lumina Frameworks <noreply@lumina-frameworks.com>."
-    );
-    err.status = 500;
-    throw err;
-  }
-  if (!/@lumina-frameworks\.com>/i.test(from) && !/@lumina-frameworks\.com$/i.test(from)) {
-    const err = new Error(
-      `CONTACT_FROM must use your verified domain. Got: ${from}`
+      `CONTACT_FROM must use @lumina-frameworks.com. Got: ${from}`
     );
     err.status = 500;
     throw err;
