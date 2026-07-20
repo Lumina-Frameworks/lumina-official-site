@@ -14,8 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://luminaframeworks.pages.dev"><img src="https://img.shields.io/badge/live-luminaframeworks.pages.dev-1aa3ff?style=for-the-badge&labelColor=05060a" alt="Live site" /></a>
-  <a href="https://luminaframeworks.com"><img src="https://img.shields.io/badge/domain-luminaframeworks.com-0d6fd4?style=for-the-badge&labelColor=05060a" alt="Domain" /></a>
+  <a href="https://luminaframework.pages.dev"><img src="https://img.shields.io/badge/live-luminaframework.pages.dev-1aa3ff?style=for-the-badge&labelColor=05060a" alt="Live site" /></a>
+  <a href="https://lumina-frameworks.com"><img src="https://img.shields.io/badge/domain-lumina--frameworks.com-0d6fd4?style=for-the-badge&labelColor=05060a" alt="Domain" /></a>
   <a href="https://t.me/+XZKbCeNqQs4zZjNl"><img src="https://img.shields.io/badge/telegram-@luminaframeworks-2AABEE?style=for-the-badge&labelColor=05060a" alt="Telegram" /></a>
 </p>
 
@@ -135,7 +135,7 @@ Edit `.dev.vars` (never commit this file):
 OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 OPENROUTER_REASONING=medium
-SITE_URL=https://luminaframeworks.pages.dev
+SITE_URL=https://lumina-frameworks.com
 RESEND_API_KEY=re_...
 CONTACT_FROM=Lumina Frameworks <hello@lumina-frameworks.com>
 ```
