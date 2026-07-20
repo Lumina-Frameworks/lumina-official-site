@@ -984,8 +984,241 @@
     .bundle-desc { font-size: 0.85rem; color: var(--ink-soft); }
     .bundle-price { font-size: 1.05rem; color: var(--accent); font-weight: 600; }
 
-    /* ---------- Portfolio ---------- */
-    .portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    /* ---------- Portfolio (card swap) ---------- */
+    .portfolio-swap {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: clamp(0.45rem, 1.5vw, 0.9rem);
+      width: min(820px, 100%);
+      margin: 0 auto 1.35rem;
+    }
+    .portfolio-nav {
+      width: 42px; height: 42px; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid var(--line-color);
+      background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+      color: var(--accent);
+      cursor: none;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      transition: border-color 0.3s, background 0.3s, color 0.3s, transform 0.3s var(--ease-out);
+      z-index: 5;
+    }
+    .portfolio-nav:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
+      transform: translateY(-1px);
+    }
+    .portfolio-nav:active { transform: scale(0.96); }
+    .portfolio-nav svg { width: 16px; height: 16px; display: block; }
+    .portfolio-stage {
+      position: relative;
+      width: 100%;
+      height: clamp(265px, 42vw, 405px);
+      min-height: 265px;
+      overflow: visible;
+      perspective: 1200px;
+    }
+    .swap-card {
+      position: absolute;
+      inset: 6% 12%;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: none;
+      transform-origin: center center;
+      transition:
+        transform 0.55s var(--ease-out),
+        opacity 0.45s ease,
+        filter 0.45s ease;
+      will-change: transform, opacity;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 1;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(0) scale(0.84);
+    }
+    .swap-card[data-pos="0"] {
+      z-index: 5;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+    }
+    .swap-card[data-pos="-1"] {
+      z-index: 4;
+      opacity: 0.62;
+      pointer-events: auto;
+      transform: translateX(-34%) scale(0.88) rotateY(12deg);
+    }
+    .swap-card[data-pos="1"] {
+      z-index: 4;
+      opacity: 0.62;
+      pointer-events: auto;
+      transform: translateX(34%) scale(0.88) rotateY(-12deg);
+    }
+    .swap-card[data-pos="-2"] {
+      z-index: 3;
+      opacity: 0.32;
+      pointer-events: none;
+      transform: translateX(-58%) scale(0.78) rotateY(16deg);
+    }
+    .swap-card[data-pos="2"] {
+      z-index: 3;
+      opacity: 0.32;
+      pointer-events: none;
+      transform: translateX(58%) scale(0.78) rotateY(-16deg);
+    }
+    .swap-card-inner {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0c12;
+      border: 2px solid color-mix(in srgb, var(--ink) 65%, var(--line-color));
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      clip-path: polygon(
+        18px 0, calc(100% - 18px) 0, 100% 18px,
+        100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%,
+        0 calc(100% - 18px), 0 18px
+      );
+    }
+    html[data-theme="light"] .swap-card-inner {
+      background: var(--bg-panel);
+      border-color: color-mix(in srgb, var(--ink) 28%, var(--line-color));
+      box-shadow: 0 16px 34px color-mix(in srgb, var(--ink) 12%, transparent);
+    }
+    .swap-card.is-active .swap-card-inner {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--ink));
+      box-shadow:
+        0 22px 48px rgba(0, 0, 0, 0.4),
+        0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+    .swap-card img,
+    .swap-card .swap-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.7s var(--ease-out);
+      filter: saturate(0.96) contrast(1.04);
+    }
+    .swap-placeholder {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 45%),
+        linear-gradient(145deg, #10131c, #07090f 70%);
+      filter: none;
+    }
+    .swap-placeholder span {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(2.8rem, 8vw, 4.2rem);
+      color: color-mix(in srgb, var(--accent) 70%, #fff);
+      letter-spacing: 0.04em;
+      opacity: 0.9;
+    }
+    .swap-card.is-active:hover img { transform: scale(1.04); }
+    .swap-card-overlay {
+      position: absolute; inset: 0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 0.95rem 1.05rem;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 52%);
+      color: #f0ebe3;
+      font-size: 0.7rem;
+      pointer-events: none;
+    }
+    .swap-card .project-symbol {
+      font-family: var(--font-display); font-weight: 800; font-size: 2rem; line-height: 1;
+      align-self: flex-end; opacity: 0.85;
+    }
+    .portfolio-meta {
+      text-align: center;
+      max-width: 52ch;
+      margin: 0 auto 1.35rem;
+      min-height: 11.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .portfolio-meta .project-index {
+      color: var(--accent);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.45rem;
+      flex: 0 0 auto;
+    }
+    .portfolio-meta .project-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 3.2vw, 1.85rem);
+      margin-bottom: 0.25rem;
+      line-height: 1.15;
+      min-height: 1.15em;
+      flex: 0 0 auto;
+    }
+    .portfolio-meta .project-category {
+      font-size: 0.72rem;
+      color: var(--accent);
+      margin-bottom: 0.65rem;
+      letter-spacing: 0.05em;
+      flex: 0 0 auto;
+    }
+    .portfolio-meta .project-desc {
+      color: var(--ink-soft);
+      font-size: 0.98rem;
+      line-height: 1.45;
+      min-height: calc(1.45em * 2);
+      margin: 0;
+      flex: 0 0 auto;
+    }
+    .portfolio-meta .project-link {
+      display: inline-flex;
+      margin-top: auto;
+      padding-top: 0.85rem;
+      min-height: calc(0.85rem + 1.1em);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      padding-bottom: 0.1rem;
+      transition: color 0.25s, border-color 0.25s, opacity 0.25s;
+      flex: 0 0 auto;
+    }
+    .portfolio-meta .project-link:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+    .portfolio-meta .project-link.is-disabled,
+    .portfolio-meta .project-link[hidden] {
+      visibility: hidden;
+      pointer-events: none;
+      border-bottom-color: transparent;
+      display: inline-flex !important;
+    }
+    .portfolio-dots {
+      display: flex; justify-content: center; gap: 0.45rem;
+      margin: -0.55rem 0 1.35rem;
+    }
+    .portfolio-dot {
+      width: 7px; height: 7px; padding: 0; border: 0;
+      background: color-mix(in srgb, var(--ink-soft) 45%, transparent);
+      clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+      cursor: none;
+      transition: background 0.25s, transform 0.25s;
+    }
+    .portfolio-dot.is-active {
+      background: var(--accent);
+      transform: scale(1.25);
+    }
+    .portfolio-footer { display: flex; justify-content: center; }
+
+    /* Keep legacy project-card styles for any residual refs */
     .project-card { overflow: hidden; display: flex; flex-direction: column; }
     .project-media {
       position: relative; aspect-ratio: 16/10; overflow: hidden;
@@ -1009,7 +1242,6 @@
     .project-title { font-family: var(--font-display); font-size: 1.45rem; margin-bottom: 0.3rem; }
     .project-category { font-size: 0.72rem; color: var(--accent); margin-bottom: 0.7rem; letter-spacing: 0.05em; }
     .project-desc { color: var(--ink-soft); }
-    .portfolio-footer { display: flex; justify-content: center; }
 
     /* ---------- About ---------- */
     .about-grid {
@@ -1344,8 +1576,16 @@
 
     /* ---------- Responsive ---------- */
     @media (max-width: 1024px) {
-      .hero-grid, .services-grid, .calc-layout, .courses-layout, .portfolio-grid, .about-grid, .contact-layout {
+      .hero-grid, .services-grid, .calc-layout, .courses-layout, .about-grid, .contact-layout {
         grid-template-columns: 1fr;
+      }
+      .portfolio-swap {
+        width: min(720px, 100%);
+        gap: 0.4rem;
+      }
+      .portfolio-stage {
+        height: clamp(245px, 44vw, 360px);
+        min-height: 245px;
       }
       .hero-grid {
         align-content: center;
@@ -1360,6 +1600,21 @@
       .footer-meta { text-align: left; }
     }
     @media (max-width: 720px) {
+      .portfolio-swap {
+        width: min(640px, 100%);
+        gap: 0.3rem;
+      }
+      .portfolio-stage {
+        height: clamp(220px, 58vw, 310px);
+        min-height: 220px;
+      }
+      .swap-card { inset: 5% 10%; }
+      .portfolio-nav { width: 36px; height: 36px; }
+      .portfolio-meta {
+        min-height: 11.25rem;
+        margin-bottom: 1.15rem;
+        padding-inline: 0.25rem;
+      }
       #calculator.section { padding: clamp(3.5rem, 8vw, 5.5rem) 0; }
       #calculator .section-head { margin-bottom: 1.5rem; }
       #calculator .section-desc { font-size: 0.95rem; }
@@ -2151,35 +2406,74 @@
             <h2 class="section-title text-glitch">Selected Projects</h2>
             <p class="section-desc">A brief showcase of products and frameworks built under the Lumina umbrella.</p>
           </div>
-          <div class="portfolio-grid">
-            <a href="https://writegeniusofficial.pages.dev/" target="_blank" rel="noopener noreferrer" class="project-card frame reveal" style="text-decoration: none; color: inherit;" data-cursor>
-              <div class="project-media">
-                <img src="./assets/WG.png" alt="Write Genius project visual" loading="lazy" />
-                <div class="project-overlay">
-                  <span class="mono">PROJECT // 01</span>
-                  <span class="project-symbol">WG</span>
+          <div class="portfolio-swap" id="portfolio-swap">
+            <button type="button" class="portfolio-nav" id="portfolio-prev" aria-label="Previous project" data-cursor>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <div class="portfolio-stage" id="portfolio-stage" aria-live="polite">
+              <article class="swap-card is-active" data-index="0" data-pos="0" data-url="https://writegeniusofficial.pages.dev/" data-cursor>
+                <div class="swap-card-inner">
+                  <img src="./assets/WG.png" alt="Write Genius project visual" draggable="false" />
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // 01</span>
+                    <span class="project-symbol">WG</span>
+                  </div>
                 </div>
-              </div>
-              <div class="project-details">
-                <h3 class="project-title">Write Genius</h3>
-                <p class="project-category mono">ACADEMIC WRITING PLATFORM</p>
-                <p class="project-desc">A state-of-the-art academic assistant utilizing custom-tuned LLMs to draft papers, organize research materials, and cite papers seamlessly.</p>
-              </div>
-            </a>
-            <article class="project-card frame reveal reveal-delay-1">
-              <div class="project-media">
-                <img src="./assets/project-lumina.png" alt="Lumina Frameworks project visual" loading="lazy" />
-                <div class="project-overlay">
-                  <span class="mono">PROJECT // 02</span>
-                  <span class="project-symbol">LF</span>
+              </article>
+              <article class="swap-card" data-index="1" data-pos="1" data-url="https://akari.lumina-frameworks.com/" data-cursor>
+                <div class="swap-card-inner">
+                  <img src="./assets/project-akari.jpg" alt="A.K.A.R.I. project visual" draggable="false" />
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // 02</span>
+                    <span class="project-symbol">AK</span>
+                  </div>
                 </div>
-              </div>
-              <div class="project-details">
-                <h3 class="project-title">Lumina Frameworks</h3>
-                <p class="project-category mono">STUDIO WEBSITE & BRAND</p>
-                <p class="project-desc">This very website, showcasing our Swiss design philosophy combined with robust front-end layout structures and smooth micro-interactions.</p>
-              </div>
-            </article>
+              </article>
+              <article class="swap-card" data-index="2" data-pos="2" data-url="" data-cursor>
+                <div class="swap-card-inner">
+                  <img src="./assets/project-lumina.png" alt="Lumina Frameworks project visual" draggable="false" />
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // 03</span>
+                    <span class="project-symbol">LF</span>
+                  </div>
+                </div>
+              </article>
+              <article class="swap-card" data-index="3" data-pos="-2" data-url="https://arefa-profile.pages.dev/" data-cursor>
+                <div class="swap-card-inner">
+                  <img src="./assets/arefapages.png" alt="Arefa Hermes project visual" draggable="false" />
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // 04</span>
+                    <span class="project-symbol">AH</span>
+                  </div>
+                </div>
+              </article>
+              <article class="swap-card" data-index="4" data-pos="-1" data-url="" data-cursor>
+                <div class="swap-card-inner">
+                  <div class="swap-placeholder" aria-hidden="true"><span>HD</span></div>
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // 05</span>
+                    <span class="project-symbol">HD</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <button type="button" class="portfolio-nav" id="portfolio-next" aria-label="Next project" data-cursor>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div class="portfolio-meta reveal" id="portfolio-meta">
+            <p class="project-index mono" id="portfolio-index">PROJECT // 01</p>
+            <h3 class="project-title" id="portfolio-title">Write Genius</h3>
+            <p class="project-category mono" id="portfolio-category">ACADEMIC WRITING PLATFORM</p>
+            <p class="project-desc" id="portfolio-desc">A state-of-the-art academic assistant utilizing custom-tuned LLMs to draft papers, organize research materials, and cite papers seamlessly.</p>
+            <a class="project-link" id="portfolio-link" href="https://writegeniusofficial.pages.dev/" target="_blank" rel="noopener noreferrer" data-cursor>Open project ↗</a>
+          </div>
+          <div class="portfolio-dots" id="portfolio-dots" role="tablist" aria-label="Selected projects">
+            <button type="button" class="portfolio-dot is-active" data-index="0" role="tab" aria-label="Show Write Genius" data-cursor></button>
+            <button type="button" class="portfolio-dot" data-index="1" role="tab" aria-label="Show A.K.A.R.I." data-cursor></button>
+            <button type="button" class="portfolio-dot" data-index="2" role="tab" aria-label="Show Lumina Frameworks" data-cursor></button>
+            <button type="button" class="portfolio-dot" data-index="3" role="tab" aria-label="Show Arefa Hermes" data-cursor></button>
+            <button type="button" class="portfolio-dot" data-index="4" role="tab" aria-label="Show Hermes Desk" data-cursor></button>
           </div>
           <div class="portfolio-footer reveal">
             <a href="./projects.html" class="btn btn-secondary" data-cursor>View More Projects →</a>
@@ -2573,6 +2867,211 @@
         el.addEventListener("mouseenter", () => body.classList.add("cursor-hover"));
         el.addEventListener("mouseleave", () => body.classList.remove("cursor-hover"));
       });
+
+      /* ---------- Portfolio card swap ---------- */
+      (function initPortfolioSwap() {
+        const stage = document.getElementById("portfolio-stage");
+        const dotsWrap = document.getElementById("portfolio-dots");
+        const section = document.getElementById("portfolio");
+        if (!stage || !dotsWrap) return;
+
+        const projects = [
+          {
+            title: "Write Genius",
+            category: "ACADEMIC WRITING PLATFORM",
+            desc: "A state-of-the-art academic assistant utilizing custom-tuned LLMs to draft papers, organize research materials, and cite papers seamlessly.",
+            url: "https://writegeniusofficial.pages.dev/"
+          },
+          {
+            title: "A.K.A.R.I.",
+            category: "PC BUILD COACH",
+            desc: "Advanced Knowledgeable Assembly Rig Instructor. A warm, beginner-first AI coach for parts, compatibility, RM budgets, assembly order, and first-boot help.",
+            url: "https://akari.lumina-frameworks.com/"
+          },
+          {
+            title: "Lumina Frameworks",
+            category: "STUDIO WEBSITE & BRAND",
+            desc: "This very website, showcasing our Swiss design philosophy combined with robust front-end layout structures and smooth micro-interactions.",
+            url: null
+          },
+          {
+            title: "Arefa Hermes",
+            category: "AGENT INTERFACE",
+            desc: "Custom-built sentient AI with intellectually savage wit and local agentic execution sub-routines.",
+            url: "https://arefa-profile.pages.dev/"
+          },
+          {
+            title: "Hermes Desk",
+            category: "AGENT WORKBENCH",
+            desc: "Multi-step agent desk for tool calls, reasoning loops, and operator-approved actions across business workflows.",
+            url: null
+          }
+        ];
+
+        const cards = [...stage.querySelectorAll(".swap-card")];
+        const dots = [...dotsWrap.querySelectorAll(".portfolio-dot")];
+        const n = projects.length;
+        let index = 0;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        const els = {
+          index: document.getElementById("portfolio-index"),
+          title: document.getElementById("portfolio-title"),
+          category: document.getElementById("portfolio-category"),
+          desc: document.getElementById("portfolio-desc"),
+          link: document.getElementById("portfolio-link"),
+          prev: document.getElementById("portfolio-prev"),
+          next: document.getElementById("portfolio-next")
+        };
+
+        const wrap = (i) => ((i % n) + n) % n;
+
+        const relativeOffset = (i) => {
+          let d = i - index;
+          if (d > n / 2) d -= n;
+          if (d < -n / 2) d += n;
+          return d;
+        };
+
+        const updateMeta = () => {
+          const p = projects[index];
+          const num = String(index + 1).padStart(2, "0");
+          if (els.index) els.index.textContent = `PROJECT // ${num}`;
+          if (els.title) els.title.textContent = p.title;
+          if (els.category) els.category.textContent = p.category;
+          if (els.desc) els.desc.textContent = p.desc;
+          if (els.link) {
+            if (p.url) {
+              els.link.hidden = false;
+              els.link.classList.remove("is-disabled");
+              els.link.href = p.url;
+              els.link.setAttribute("aria-hidden", "false");
+            } else {
+              els.link.hidden = true;
+              els.link.classList.add("is-disabled");
+              els.link.removeAttribute("href");
+              els.link.setAttribute("aria-hidden", "true");
+            }
+          }
+          dots.forEach((dot, i) => {
+            dot.classList.toggle("is-active", i === index);
+            dot.setAttribute("aria-selected", i === index ? "true" : "false");
+          });
+        };
+
+        const paint = () => {
+          cards.forEach((card) => {
+            const i = Number(card.dataset.index);
+            const offset = relativeOffset(i);
+            card.dataset.pos = String(offset);
+            card.classList.toggle("is-active", offset === 0);
+            card.setAttribute("aria-hidden", offset === 0 ? "false" : "true");
+          });
+          updateMeta();
+        };
+
+        const CYCLE_MS = 5000;
+        let autoTimer = null;
+        let autoEnabled = !reduce;
+        let inView = false;
+        let hovered = false;
+
+        const stopAuto = () => {
+          if (autoTimer) {
+            clearTimeout(autoTimer);
+            autoTimer = null;
+          }
+        };
+
+        const scheduleAuto = () => {
+          stopAuto();
+          if (!autoEnabled || !inView || hovered) return;
+          autoTimer = window.setTimeout(() => {
+            index = wrap(index + 1);
+            paint();
+            scheduleAuto();
+          }, CYCLE_MS);
+        };
+
+        const go = (next) => {
+          index = wrap(next);
+          paint();
+          scheduleAuto();
+        };
+
+        cards.forEach((card) => {
+          card.addEventListener("click", () => {
+            const i = Number(card.dataset.index);
+            const offset = relativeOffset(i);
+            if (offset === 0) {
+              const url = card.dataset.url;
+              if (url) window.open(url, "_blank", "noopener,noreferrer");
+              return;
+            }
+            go(i);
+          });
+        });
+
+        dots.forEach((dot) => {
+          dot.addEventListener("click", () => go(Number(dot.dataset.index)));
+        });
+
+        els.prev?.addEventListener("click", () => go(index - 1));
+        els.next?.addEventListener("click", () => go(index + 1));
+
+        let touchX = null;
+        stage.addEventListener("pointerdown", (e) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          touchX = e.clientX;
+        });
+        stage.addEventListener("pointerup", (e) => {
+          if (touchX == null) return;
+          const dx = e.clientX - touchX;
+          touchX = null;
+          if (Math.abs(dx) < 48) return;
+          go(index + (dx < 0 ? 1 : -1));
+        });
+
+        section?.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft") { e.preventDefault(); go(index - 1); }
+          if (e.key === "ArrowRight") { e.preventDefault(); go(index + 1); }
+        });
+
+        if (!reduce) {
+          const pauseTargets = [
+            stage,
+            els.prev,
+            els.next,
+            document.getElementById("portfolio-meta"),
+            dotsWrap,
+            document.querySelector("#portfolio .portfolio-footer")
+          ].filter(Boolean);
+          pauseTargets.forEach((el) => {
+            el.addEventListener("mouseenter", () => {
+              hovered = true;
+              stopAuto();
+            });
+            el.addEventListener("mouseleave", () => {
+              hovered = false;
+              scheduleAuto();
+            });
+          });
+        }
+
+        paint();
+
+        if (section && "IntersectionObserver" in window) {
+          const ioSwap = new IntersectionObserver((entries) => {
+            inView = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0.2);
+            if (inView) scheduleAuto();
+            else stopAuto();
+          }, { threshold: [0, 0.2, 0.45] });
+          ioSwap.observe(section);
+        } else {
+          inView = true;
+          scheduleAuto();
+        }
+      })();
 
       /* ---------- Mobile nav ---------- */
       const menuToggle = document.getElementById("menu-toggle");

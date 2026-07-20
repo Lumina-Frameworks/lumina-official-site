@@ -40,6 +40,7 @@ COURSES & PACKS
 
 PROJECTS
 - Write Genius: academic writing platform with custom-tuned LLMs. Live website: [writegeniusofficial.pages.dev](https://writegeniusofficial.pages.dev/)
+- A.K.A.R.I. (Advanced Knowledgeable Assembly Rig Instructor): beginner-first AI coach for PC building (parts, compatibility, RM budgets, assembly, BIOS/first-boot). Live website: [akari.lumina-frameworks.com](https://akari.lumina-frameworks.com/)
 - Lumina Frameworks site/brand: Swiss-precision web craft and micro-interactions.
 - Hermes Desk: Multi-step agent desk for tool calls, reasoning loops, and operator-approved actions.
 - Arefa Hermes: Sentient local agentic AI interface with intellectually savage wit. Live website: [arefa-profile.pages.dev](https://arefa-profile.pages.dev/)
