@@ -659,6 +659,7 @@
         margin 0.45s var(--ease-out);
       margin-top: 0;
       pointer-events: none;
+      cursor: pointer;
     }
     .control-peek span {
       overflow: hidden;
@@ -676,17 +677,86 @@
       opacity: 1;
       margin-top: 0.35rem;
     }
-    @media (pointer: coarse) {
+
+    /* Mobile / touch: minimize search, sort, and filters together */
+    @media (max-width: 720px), (pointer: coarse) {
+      .control-deck.is-compact:not(.is-expanded) {
+        padding: 0.45rem 0 0.4rem;
+      }
+      .control-deck.is-compact:not(.is-expanded) .control-top {
+        max-height: 0;
+        opacity: 0;
+        margin: 0;
+        gap: 0;
+        overflow: hidden;
+        transform: translateY(-6px);
+        pointer-events: none;
+        visibility: hidden;
+        transition:
+          max-height 0.4s var(--ease-out),
+          opacity 0.28s ease,
+          transform 0.35s var(--ease-out),
+          visibility 0.28s;
+      }
       .control-deck.is-compact:not(.is-expanded) .control-extras {
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+      }
+      .control-deck.is-compact.is-expanded {
+        padding: 0.85rem 0 0.85rem;
+      }
+      .control-deck.is-compact.is-expanded .control-top {
+        max-height: 220px;
+        opacity: 1;
+        gap: 0.65rem;
+        overflow: visible;
+        transform: none;
+        pointer-events: auto;
+        visibility: visible;
+      }
+      .control-deck.is-compact.is-expanded .control-extras {
         grid-template-rows: 1fr;
         opacity: 1;
         transform: none;
         pointer-events: auto;
       }
-      .control-deck.is-compact:not(.is-expanded) {
-        padding: 1rem 0 0.95rem;
+      .control-deck.is-compact .control-peek {
+        display: grid;
+        grid-template-rows: 1fr;
+        opacity: 1;
+        margin-top: 0;
+        pointer-events: auto;
       }
-      .control-peek { display: none !important; }
+      .control-deck.is-compact:not(.is-expanded) .control-peek {
+        margin-top: 0;
+      }
+      .control-deck.is-compact.is-expanded .control-peek {
+        margin-top: 0.55rem;
+      }
+      .control-deck.is-compact .control-peek span {
+        padding: 0.55rem 0.75rem;
+        border: 1px solid var(--line-color);
+        color: var(--accent);
+        letter-spacing: 0.08em;
+        clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+        background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+      }
+      .control-deck.is-compact.is-expanded .control-peek span {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--line-color));
+      }
+      .filter-row {
+        gap: 0.4rem;
+        margin-top: 0.75rem;
+      }
+      .filter-chip {
+        font-size: 0.64rem;
+        padding: 0.42rem 0.65rem;
+      }
+      .results-meta {
+        margin-top: 0.7rem;
+      }
     }
 
     /* Exit handoff back to home */
@@ -1105,7 +1175,7 @@
               </div>
             </div>
           </div>
-          <div class="control-peek" aria-hidden="true"><span>// Filters · Hover to expand</span></div>
+          <div class="control-peek" id="control-peek" aria-hidden="true"><span id="control-peek-label">// Filters · Hover to expand</span></div>
         </div>
       </div>
 
@@ -1417,26 +1487,78 @@
 
     const controls = document.getElementById("controls");
     const hero = document.getElementById("hero");
+    const controlPeek = document.getElementById("control-peek");
+    const controlPeekLabel = document.getElementById("control-peek-label");
+    const touchFilters = window.matchMedia("(max-width: 720px), (pointer: coarse)");
+
+    function syncPeekLabel() {
+      if (!controlPeekLabel || !controls) return;
+      const compact = controls.classList.contains("is-compact");
+      const expanded = controls.classList.contains("is-expanded");
+      if (!touchFilters.matches) {
+        controlPeekLabel.textContent = "// Filters · Hover to expand";
+        return;
+      }
+      if (!compact) {
+        controlPeekLabel.textContent = "// Search & filters";
+        return;
+      }
+      controlPeekLabel.textContent = expanded
+        ? "// Search & filters · Tap to minimize"
+        : "// Search & filters · Tap to expand";
+    }
+
     function updateControlsMode() {
       if (!controls) return;
-      const threshold = Math.max(220, (hero?.offsetHeight || 520) - 140);
+      const mobile = touchFilters.matches;
+      const threshold = mobile
+        ? Math.max(120, (hero?.offsetHeight || 420) - 180)
+        : Math.max(220, (hero?.offsetHeight || 520) - 140);
       const compact = window.scrollY > threshold;
       controls.classList.toggle("is-compact", compact);
       if (!compact) controls.classList.remove("is-expanded");
+      syncPeekLabel();
     }
+
     controls?.addEventListener("mouseenter", () => {
+      if (touchFilters.matches) return;
       if (controls.classList.contains("is-compact")) {
         controls.classList.add("is-expanded");
+        syncPeekLabel();
       }
     });
     controls?.addEventListener("mouseleave", () => {
+      if (touchFilters.matches) return;
       controls.classList.remove("is-expanded");
+      syncPeekLabel();
     });
     controls?.addEventListener("focusin", () => {
+      if (touchFilters.matches) return;
       if (controls.classList.contains("is-compact")) {
         controls.classList.add("is-expanded");
+        syncPeekLabel();
       }
     });
+
+    controlPeek?.addEventListener("click", (e) => {
+      if (!touchFilters.matches || !controls) return;
+      if (!controls.classList.contains("is-compact")) return;
+      e.preventDefault();
+      const willExpand = !controls.classList.contains("is-expanded");
+      controls.classList.toggle("is-expanded", willExpand);
+      if (!willExpand) {
+        document.getElementById("sort-shell")?.classList.remove("is-open");
+        document.getElementById("sort-trigger")?.setAttribute("aria-expanded", "false");
+      }
+      syncPeekLabel();
+    });
+
+    touchFilters.addEventListener?.("change", () => {
+      if (!controls) return;
+      if (!touchFilters.matches) controls.classList.remove("is-expanded");
+      updateControlsMode();
+    });
+
     updateControlsMode();
 
     const state = { query: "", category: "All", sort: "newest" };
