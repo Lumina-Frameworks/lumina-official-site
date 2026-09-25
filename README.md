@@ -308,6 +308,23 @@ npx wrangler pages deploy public --project-name=luminaframework
 > is exactly the leak the `public/` restructure fixed. `npm run deploy` is the
 > safer shorthand: it relies on `pages_build_output_dir` in `wrangler.toml`.
 
+### `_headers` gotcha
+
+Rules in `public/_headers` must use a **splat pattern**. Verified against the
+live deployment:
+
+```
+/admin*      # works  -> X-Frame-Options: DENY applied
+/admin.html  # silently does nothing
+```
+
+An exact path without a `*` is accepted by the file format and then never
+matches, with no warning at deploy time. Always confirm a new rule landed:
+
+```bash
+curl.exe -sI https://lumina-frameworks.com/admin.html | Select-String "x-frame|x-robots"
+```
+
 ---
 
 ## Lumi (guide-bot)
