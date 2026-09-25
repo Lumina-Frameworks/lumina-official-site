@@ -105,7 +105,7 @@ describe("admin.html wiring", () => {
 
   test("the mobile layout collapses the console to one column", () => {
     assert.match(html, /@media \(max-width: 1039px\) \{ \.list \{ max-height: 44vh; \} \}/);
-    assert.match(html, /@media \(min-width: 1040px\) \{ \.console-grid \{ grid-template-columns: 350px minmax\(0, 1fr\); \} \}/);
+    assert.match(html, /\.console-grid \{ grid-template-columns: 392px minmax\(0, 1fr\); \}/);
     // Dialogs come up from the bottom edge on small screens.
     assert.match(html, /@keyframes sheetUp/);
     // Safe-area padding for notched phones.
@@ -481,7 +481,7 @@ describe("admin.html wiring", () => {
     assert.match(html, /body\.project-open #editor-panel \{ display: block;/);
     assert.match(html, /#editor-panel \{ display: none; \}/);
     // Desktop keeps both panes: the grid is untouched above the split point.
-    assert.match(html, /@media \(min-width: 1040px\) \{ \.console-grid \{ grid-template-columns: 350px minmax\(0, 1fr\); \} \}/);
+    assert.match(html, /\.console-grid \{ grid-template-columns: 392px minmax\(0, 1fr\); \}/);
 
     // The rail is the whole screen now, so it gets the whole height and a
     // sticky filter bar.
@@ -545,6 +545,22 @@ describe("admin.html wiring", () => {
     // Leaving must release the lock: an auth failure lands on the gate, which
     // is a normal document.
     assert.match(html, /document\.body\.classList\.remove\("is-console"\);/);
+  });
+
+  test("the desktop editor pane has a definite height to scroll within", () => {
+    // A grid item's automatic minimum size is its content, so without a
+    // definite height on the item the frame grew to fit the form and there was
+    // nothing left to scroll.
+    assert.match(html, /\.console-grid \{\s*\n\s*display: grid; gap: 14px; grid-template-columns: 1fr;[\s\S]*?align-items: stretch;/);
+    assert.match(html, /\.console-grid \{ flex: 1 1 auto; min-height: 0; align-items: stretch; \}/);
+    assert.match(html, /\.console-grid > \.frame \{ min-height: 0; overflow: hidden; display: flex; flex-direction: column; \}/);
+    // The phone drill-down wants natural height instead.
+    assert.match(html, /\.console-grid \{ align-items: start; \}/);
+    // Row columns are declared in both the base rule and the desktop override,
+    // so the badge cannot end up sharing a track with the text.
+    assert.match(html, /\.row \{[\s\S]*?grid-template-columns: 36px minmax\(0, 1fr\) auto;/);
+    assert.match(html, /\.row-badge \{[\s\S]*?grid-column: 3; grid-row: 1 \/ span 2;/);
+    assert.match(html, /\.row-sub \{[\s\S]*?margin-top: 2px;/);
   });
 
   test("no leftover debug output ships in the page", () => {

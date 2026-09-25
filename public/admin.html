@@ -561,6 +561,7 @@
       body.is-console { height: auto; overflow: visible; display: block; }
       .tabpanel.is-active { display: block; }
       main { display: block; }
+      .console-grid { align-items: start; }
     }
 
     /* =====================================================================
@@ -789,8 +790,12 @@
       .feed { flex: 1 1 auto; min-height: 0; max-height: none; }
 
       /* Projects: the rail scrolls its list, the editor scrolls its form. */
-      .console-grid { flex: 1 1 auto; min-height: 0; }
-      .console-grid > .frame { min-height: 0; display: flex; flex-direction: column; }
+      /* A grid item's automatic minimum size is its content, so without a
+         definite height on the item the frame grows to fit the form and there
+         is nothing left to scroll. align-items: start on the base rule makes it
+         worse, hence the reset. */
+      .console-grid { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+      .console-grid > .frame { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
       .list-tools { flex: none; }
       .list { flex: 1 1 auto; min-height: 0; max-height: none; }
       #editor-panel > .pad-note { flex: 1 1 auto; min-height: 0; }
@@ -928,8 +933,22 @@
     /* =====================================================================
        Projects
        ===================================================================== */
-    .console-grid { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
-    @media (min-width: 1040px) { .console-grid { grid-template-columns: 350px minmax(0, 1fr); } }
+    .console-grid {
+      display: grid; gap: 14px; grid-template-columns: 1fr;
+      /* The base rule stretches items so the editor pane has a definite height
+         at desktop. The phone drill-down wants natural height, so it resets
+         this below 900px. */
+      align-items: stretch;
+    }
+    @media (min-width: 1040px) {
+      /* Wider than the 350px it started at: a title, a meta line and two status
+         bookmarks need the room, and the window has it. */
+      .console-grid { grid-template-columns: 392px minmax(0, 1fr); }
+      .row { padding: 10px 12px 10px 14px; }
+      .row-sym { grid-column: 1; grid-row: 1 / span 2; }
+      .row-main { grid-column: 2; }
+      .row-badge { grid-column: 3; grid-row: 1 / span 2; }
+    }
 
     .list-tools {
       display: grid; gap: 9px; padding: 14px 16px;
@@ -1027,16 +1046,26 @@
       animation: fadeIn 0.24s var(--ease-out) both;
     }
     .row-sym {
-      grid-row: 1 / span 2;
-      width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden;
+      grid-column: 1; grid-row: 1 / span 2;
+      width: 34px; height: 34px; display: grid; place-items: center; overflow: hidden;
       font-family: var(--font-mono); font-size: 11px; color: var(--accent);
       background: var(--bg-soft); border: 1px solid var(--line-color);
       clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
     }
     .row-sym img { width: 100%; height: 100%; object-fit: cover; }
     .row-main { grid-column: 2; min-width: 0; }
-    .row-title { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-title {
+      display: block;
+      font-size: 13.5px; font-weight: 500; letter-spacing: -0.005em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* The meta line needs a little air above it: at 350px the two lines were
+       sitting against each other and read as one run of text. */
+    .row-sub {
+      display: block; margin-top: 2px;
+      font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
     /* Status bookmark in the top right: the shape does the work, so the row
        needs no room for words. A draft shows nothing, so a glance down the
