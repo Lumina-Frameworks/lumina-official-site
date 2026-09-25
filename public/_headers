@@ -1,0 +1,17 @@
+# Cloudflare Pages headers.
+# Deliberately no Content-Security-Policy: the site relies on inline scripts and
+# styles, so a strict CSP would break it. These are the safe wins.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# The admin console must never be framed (clickjacking) or indexed.
+/admin.html
+  X-Frame-Options: DENY
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+
+/api/*
+  X-Content-Type-Options: nosniff
+  Cache-Control: no-store

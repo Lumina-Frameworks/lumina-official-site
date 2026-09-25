@@ -1209,9 +1209,11 @@
     </footer>
   </div>
 
+  <script src="./assets/projects-feed.js"></script>
   <script>
     const body = document.body;
     const html = document.documentElement;
+    const { escapeHtml, safeUrl, safeImage, loadProjects } = window.LuminaProjects;
 
     /* Custom cursor */
     const cursor = document.querySelector(".cursor");
@@ -1293,7 +1295,9 @@
       }, 1100);
     }
 
-    const PROJECTS = [
+    /* Fallback seed. The live list comes from /api/projects (D1). Keeping this
+       here means the grid still renders if the API is unreachable. */
+    let PROJECTS = [
       {
         id: "write-genius",
         title: "Write Genius",
@@ -1409,8 +1413,13 @@
       }
     ];
 
-    const CATEGORIES = ["All", ...Array.from(new Set(PROJECTS.map((p) => p.category)))];
-    const YEARS = Array.from(new Set(PROJECTS.map((p) => p.year)));
+    let CATEGORIES = ["All", ...Array.from(new Set(PROJECTS.map((p) => p.category)))];
+    let YEARS = Array.from(new Set(PROJECTS.map((p) => p.year)));
+
+    function refreshFacets() {
+      CATEGORIES = ["All", ...Array.from(new Set(PROJECTS.map((p) => p.category)))];
+      YEARS = Array.from(new Set(PROJECTS.map((p) => p.year)));
+    }
 
     const savedTheme = localStorage.getItem("lumina-theme");
     if (savedTheme === "light" || savedTheme === "dark") html.setAttribute("data-theme", savedTheme);
@@ -1581,14 +1590,16 @@
       statYears: document.getElementById("stat-years")
     };
 
-    els.statTotal.textContent = String(PROJECTS.length);
-    els.statCats.textContent = String(CATEGORIES.length - 1);
-    els.statYears.textContent = String(YEARS.length);
-    els.total.textContent = String(PROJECTS.length);
+    function refreshStats() {
+      els.statTotal.textContent = String(PROJECTS.length);
+      els.statCats.textContent = String(CATEGORIES.length - 1);
+      els.statYears.textContent = String(YEARS.length);
+      els.total.textContent = String(PROJECTS.length);
+    }
 
     function renderFilters() {
       els.cats.innerHTML = CATEGORIES.map((cat) =>
-        `<button type="button" class="filter-chip${state.category === cat ? " is-active" : ""}" data-category="${cat}" data-cursor>${cat.toUpperCase()}</button>`
+        `<button type="button" class="filter-chip${state.category === cat ? " is-active" : ""}" data-category="${escapeHtml(cat)}" data-cursor>${escapeHtml(cat.toUpperCase())}</button>`
       ).join("");
       bindCursorHover(els.cats);
     }
@@ -1611,13 +1622,19 @@
     }
 
     function cardHtml(project, index) {
-      const media = project.image
-        ? `<img src="${project.image}" alt="${project.title} project visual" loading="lazy" />`
-        : `<div class="project-placeholder" aria-hidden="true"><span>${project.symbol}</span></div>`;
-      const stack = project.stack.slice(0, 3).map((s) => `<span class="stack-chip">${s}</span>`).join("");
-      const tag = project.url ? "a" : "article";
-      const attrs = project.url
-        ? `href="${project.url}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit;" data-cursor`
+      const title = escapeHtml(project.title);
+      const symbol = escapeHtml(project.symbol);
+      const category = escapeHtml(project.category);
+      const blurb = escapeHtml(project.blurb);
+      const image = safeImage(project.image);
+      const href = safeUrl(project.url);
+      const media = image
+        ? `<img src="${escapeHtml(image)}" alt="${title} project visual" loading="lazy" />`
+        : `<div class="project-placeholder" aria-hidden="true"><span>${symbol}</span></div>`;
+      const stack = project.stack.slice(0, 3).map((s) => `<span class="stack-chip">${escapeHtml(s)}</span>`).join("");
+      const tag = href ? "a" : "article";
+      const attrs = href
+        ? `href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit;" data-cursor`
         : "";
       return `
         <${tag} ${attrs} class="project-card frame" style="animation-delay:${Math.min(index, 8) * 45}ms">
@@ -1625,17 +1642,17 @@
             ${media}
             <div class="project-overlay">
               <span class="mono">PROJECT // ${String(index + 1).padStart(2, "0")}</span>
-              <span class="mono">${project.symbol}</span>
+              <span class="mono">${symbol}</span>
             </div>
           </div>
           <div class="project-details">
-            <h2 class="project-title">${project.title}</h2>
-            <p class="project-category mono">${project.category.toUpperCase()}</p>
-            <p class="project-desc">${project.blurb}</p>
+            <h2 class="project-title">${title}</h2>
+            <p class="project-category mono">${category.toUpperCase()}</p>
+            <p class="project-desc">${blurb}</p>
             <div class="project-stack">${stack}</div>
             <div class="project-meta">
-              <span>${project.year}</span>
-              <span>${project.category.toUpperCase()} LANE</span>
+              <span>${escapeHtml(project.year)}</span>
+              <span>${category.toUpperCase()} LANE</span>
             </div>
           </div>
         </${tag}>
@@ -1787,8 +1804,27 @@
     draw();
     window.addEventListener("resize", resize);
 
+    refreshFacets();
+    refreshStats();
     renderFilters();
     render();
+
+    /* Live projects from D1. The hardcoded array above stays as the fallback,
+       so a failed request degrades to the last known-good list. */
+    loadProjects()
+      .then((projects) => {
+        PROJECTS = projects;
+        refreshFacets();
+        refreshStats();
+        if (state.category !== "All" && !CATEGORIES.includes(state.category)) {
+          state.category = "All";
+        }
+        renderFilters();
+        render();
+      })
+      .catch((err) => {
+        console.warn("[projects] falling back to built-in list:", err.message);
+      });
   </script>
 </body>
 </html>

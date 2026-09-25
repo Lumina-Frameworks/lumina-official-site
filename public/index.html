@@ -2805,10 +2805,12 @@
     </form>
   </aside>
 
+  <script src="./assets/projects-feed.js"></script>
   <script>
     (() => {
       const html = document.documentElement;
       const body = document.body;
+      const { escapeHtml, safeUrl, safeImage, loadProjects } = window.LuminaProjects;
 
       /* ---------- Theme ---------- */
       const themeToggle = document.getElementById("theme-toggle");
@@ -2981,50 +2983,120 @@
         ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
         requestAnimationFrame(follow);
       })();
-      document.querySelectorAll("a, button, input, select, textarea, [data-cursor]").forEach((el) => {
-        el.addEventListener("mouseenter", () => body.classList.add("cursor-hover"));
-        el.addEventListener("mouseleave", () => body.classList.remove("cursor-hover"));
-      });
+      const bindCursorHover = (root = document) => {
+        root.querySelectorAll("a, button, input, select, textarea, [data-cursor]").forEach((el) => {
+          el.addEventListener("mouseenter", () => body.classList.add("cursor-hover"));
+          el.addEventListener("mouseleave", () => body.classList.remove("cursor-hover"));
+        });
+      };
+      bindCursorHover();
 
       /* ---------- Portfolio card swap ---------- */
-      (function initPortfolioSwap() {
+      (async function initPortfolioSwap() {
         const stage = document.getElementById("portfolio-stage");
         const dotsWrap = document.getElementById("portfolio-dots");
         const section = document.getElementById("portfolio");
         if (!stage || !dotsWrap) return;
 
-        const projects = [
+        /* The markup already in the DOM is the fallback. These entries mirror it
+           so a failed API call renders exactly what the page shipped with. */
+        const fallback = [
           {
             title: "Write Genius",
             category: "ACADEMIC WRITING PLATFORM",
             desc: "A state-of-the-art academic assistant utilizing custom-tuned LLMs to draft papers, organize research materials, and cite papers seamlessly.",
-            url: "https://writegeniusofficial.pages.dev/"
+            url: "https://writegeniusofficial.pages.dev/",
+            image: "./assets/WG.png",
+            symbol: "WG"
           },
           {
             title: "A.K.A.R.I.",
             category: "PC BUILD COACH",
             desc: "Advanced Knowledgeable Assembly Rig Instructor. A warm, beginner-first AI coach for parts, compatibility, RM budgets, assembly order, and first-boot help.",
-            url: "https://akari.lumina-frameworks.com/"
+            url: "https://akari.lumina-frameworks.com/",
+            image: "./assets/project-akari.jpg",
+            symbol: "AK"
           },
           {
             title: "Lumina Frameworks",
             category: "STUDIO WEBSITE & BRAND",
             desc: "This very website, showcasing our Swiss design philosophy combined with robust front-end layout structures and smooth micro-interactions.",
-            url: null
+            url: null,
+            image: "./assets/project-lumina.png",
+            symbol: "LF"
           },
           {
             title: "Arefa Hermes",
             category: "AGENT INTERFACE",
             desc: "Custom-built sentient AI with intellectually savage wit and local agentic execution sub-routines.",
-            url: "https://arefa-profile.pages.dev/"
+            url: "https://arefa-profile.pages.dev/",
+            image: "./assets/arefapages.png",
+            symbol: "AH"
           },
           {
             title: "Hermes Desk",
             category: "AGENT WORKBENCH",
             desc: "Multi-step agent desk for tool calls, reasoning loops, and operator-approved actions across business workflows.",
-            url: null
+            url: null,
+            image: null,
+            symbol: "HD"
           }
         ];
+
+        let projects = fallback;
+
+        const offsetFrom = (i, current, total) => {
+          let d = i - current;
+          if (d > total / 2) d -= total;
+          if (d < -total / 2) d += total;
+          return d;
+        };
+
+        const renderStage = (list) => {
+          stage.innerHTML = list.map((p, i) => {
+            const image = safeImage(p.image);
+            const media = image
+              ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(p.title)} project visual" draggable="false" />`
+              : `<div class="swap-placeholder" aria-hidden="true"><span>${escapeHtml(p.symbol)}</span></div>`;
+            return `
+              <article class="swap-card" data-index="${i}" data-pos="${offsetFrom(i, 0, list.length)}" data-url="${escapeHtml(safeUrl(p.url))}" data-cursor>
+                <div class="swap-card-inner">
+                  ${media}
+                  <div class="swap-card-overlay">
+                    <span class="mono">PROJECT // ${String(i + 1).padStart(2, "0")}</span>
+                    <span class="project-symbol">${escapeHtml(p.symbol)}</span>
+                  </div>
+                </div>
+              </article>
+            `;
+          }).join("");
+        };
+
+        const renderDots = (list) => {
+          dotsWrap.innerHTML = list.map((p, i) => `
+            <button type="button" class="portfolio-dot${i === 0 ? " is-active" : ""}" data-index="${i}" role="tab" aria-label="Show ${escapeHtml(p.title)}" aria-selected="${i === 0 ? "true" : "false"}" data-cursor></button>
+          `).join("");
+        };
+
+        try {
+          const fetched = await loadProjects({ featured: true });
+          if (fetched.length) {
+            projects = fetched.map((p) => ({
+              title: p.title,
+              category: p.tagline || p.category.toUpperCase(),
+              desc: p.blurb,
+              url: p.url,
+              image: p.image,
+              symbol: p.symbol
+            }));
+            renderStage(projects);
+            renderDots(projects);
+            bindCursorHover(stage);
+            bindCursorHover(dotsWrap);
+          }
+        } catch (err) {
+          console.warn("[portfolio] using built-in project list:", err.message);
+        }
 
         const cards = [...stage.querySelectorAll(".swap-card")];
         const dots = [...dotsWrap.querySelectorAll(".portfolio-dot")];

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>404 · Lumina Frameworks</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="/assets/lumina-logo-dark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem("lumina-theme");
+        if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+      } catch (_) {}
+    })();
+  </script>
+  <style>
+    :root { --chamfer: 16px; }
+    [data-theme="dark"] {
+      --bg: #05060a; --panel: #11131c; --ink: #f4f7fc; --ink-soft: #9aa3b8; --ink-faint: #6a7388;
+      --line: rgba(26, 163, 255, 0.16); --accent: #1aa3ff; --grad: linear-gradient(120deg, #062a5c 0%, #0d6fd4 42%, #3db7ff 78%, #d9efff 100%);
+    }
+    [data-theme="light"] {
+      --bg: #eef3f8; --panel: #f7fafc; --ink: #12151c; --ink-soft: #4f5668; --ink-faint: #7a8496;
+      --line: rgba(40, 90, 140, 0.16); --accent: #0d6fd4; --grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #dcefff 100%);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Outfit", sans-serif; background: var(--bg); color: var(--ink);
+      min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      max-width: 520px; width: 100%; text-align: center; padding: 46px 36px;
+      background: var(--panel); border: 1px solid var(--line);
+      clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+    }
+    .code { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 18px; }
+    h1 { font-family: "Syne", sans-serif; font-size: clamp(34px, 8vw, 54px); line-height: 1; margin-bottom: 14px; }
+    h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    p { color: var(--ink-soft); font-size: 15px; line-height: 1.6; margin-bottom: 26px; }
+    .links { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    a {
+      font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: 0.1em;
+      text-transform: uppercase; text-decoration: none; padding: 11px 18px;
+      border: 1px solid var(--line); color: var(--ink);
+      clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+      transition: border-color 0.2s, color 0.2s;
+    }
+    a:hover { border-color: var(--accent); color: var(--accent); }
+    a.primary { background: var(--grad); border-color: transparent; color: #fff; }
+    a.primary:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <p class="code">// ERROR_404 · ROUTE_NOT_FOUND</p>
+    <h1>Signal <span>lost</span>.</h1>
+    <p>That page isn't part of the Lumina surface. It may have moved, or the link was mistyped.</p>
+    <div class="links">
+      <a class="primary" href="/">Back to home</a>
+      <a href="/projects.html">View projects</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,9 +1,26 @@
 name = "lumina-main-site-v4"
 compatibility_date = "2026-07-01"
-pages_build_output_dir = "."
+pages_build_output_dir = "./public"
+
+# NOTE: only keys in wrangler's supportedPagesConfigFields allowlist may appear
+# here. Adding e.g. `[observability]` makes `wrangler pages deploy` fail with
+# "Configuration file for Pages projects does not support ...".
 
 [vars]
 OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"
 OPENROUTER_REASONING = "medium"
 SITE_URL = "https://lumina-frameworks.com"
 CONTACT_FROM = "Lumina Frameworks <hello@lumina-frameworks.com>"
+MEDIA_BASE_URL = "https://media.lumina-frameworks.com"
+
+# Secrets are NOT stored here. Set in Cloudflare dashboard (Pages > Settings > Variables and Secrets):
+#   OPENROUTER_API_KEY, RESEND_API_KEY, GOOGLE_CLIENT_ID, AUTH_SECRET, ADMIN_EMAILS
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lumina-cms"
+database_id = "25de1647-aaa2-4ae8-ad90-8b166bda5139"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "lumina-media"

@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Console · Lumina Frameworks</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/png" href="./assets/lumina-logo-dark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Outfit:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem("lumina-theme");
+        if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+      } catch (_) {}
+    })();
+  </script>
+  <style>
+    :root {
+      --font-display: "Syne", sans-serif;
+      --font-hero: "Chakra Petch", sans-serif;
+      --font-body: "Outfit", sans-serif;
+      --font-mono: "IBM Plex Mono", monospace;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --chamfer: 14px;
+    }
+    [data-theme="dark"] {
+      --bg: #05060a; --bg-elev: #0b0d14; --bg-panel: #11131c; --bg-soft: #171a25;
+      --ink: #f4f7fc; --ink-soft: #9aa3b8; --ink-faint: #6a7388;
+      --line-color: rgba(26, 163, 255, 0.16); --line-strong: rgba(13, 111, 212, 0.4);
+      --accent: #1aa3ff; --accent-2: #0a4f9c; --accent-3: #7dd9ff;
+      --success: #3dde9a; --danger: #ff6b7a;
+      --accent-grad: linear-gradient(120deg, #062a5c 0%, #0d6fd4 42%, #3db7ff 78%, #d9efff 100%);
+    }
+    [data-theme="light"] {
+      --bg: #eef3f8; --bg-elev: #e6edf5; --bg-panel: #f7fafc; --bg-soft: #eef4fa;
+      --ink: #12151c; --ink-soft: #4f5668; --ink-faint: #7a8496;
+      --line-color: rgba(40, 90, 140, 0.16); --line-strong: rgba(13, 111, 212, 0.32);
+      --accent: #0d6fd4; --accent-2: #074a96; --accent-3: #2a8fd4;
+      --success: #0f9f65; --danger: #d92c46;
+      --accent-grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #dcefff 100%);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.55;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    .mono { font-family: var(--font-mono); }
+
+    /* chamfered frame, matching the public site */
+    .frame {
+      position: relative;
+      background: var(--bg-panel);
+      border: 1px solid var(--line-color);
+      clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+    }
+
+    /* ---------- bar ---------- */
+    .bar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 18px;
+      padding: 0 22px; height: 66px;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line-color);
+    }
+    .bar img { width: 30px; height: 30px; display: block; }
+    .bar-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--accent); }
+    .bar-spacer { flex: 1; }
+    .bar-user { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+    /* ---------- controls ---------- */
+    button, .btn {
+      font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.1em;
+      text-transform: uppercase; cursor: pointer;
+      padding: 10px 16px; border: 1px solid var(--line-strong);
+      background: transparent; color: var(--ink);
+      transition: background 0.2s var(--ease-out), border-color 0.2s, color 0.2s, transform 0.15s;
+      clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+    }
+    button:hover:not(:disabled), .btn:hover { border-color: var(--accent); color: var(--accent); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary {
+      background: var(--accent-grad); border-color: transparent; color: #fff; font-weight: 500;
+    }
+    button.primary:hover:not(:disabled) { color: #fff; transform: translateY(-1px); }
+    button.ghost { border-color: var(--line-color); color: var(--ink-soft); }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    button.danger:hover:not(:disabled) { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+    button.tiny { padding: 6px 10px; font-size: 10px; }
+
+    /* ---------- layout ---------- */
+    main { max-width: 1400px; margin: 0 auto; padding: 26px 22px 80px; }
+    .gate-wrap { max-width: 460px; margin: 12vh auto; padding: 34px; }
+    .gate-wrap h1 { font-family: var(--font-display); font-size: 26px; margin-bottom: 8px; }
+    .gate-wrap p { color: var(--ink-soft); font-size: 14px; margin-bottom: 22px; }
+    #gsi-button { min-height: 44px; margin-bottom: 14px; }
+    .gate-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+    .console { display: grid; grid-template-columns: 340px 1fr; gap: 22px; align-items: start; }
+    @media (max-width: 980px) { .console { grid-template-columns: 1fr; } }
+
+    .panel-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px; border-bottom: 1px solid var(--line-color);
+    }
+    .panel-head h2 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--ink-faint); font-weight: 400; }
+    .panel-head .count { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+
+    /* ---------- list ---------- */
+    .list { max-height: 72vh; overflow-y: auto; }
+    .row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 18px; border-bottom: 1px solid var(--line-color);
+      cursor: pointer; transition: background 0.16s;
+    }
+    .row:hover { background: var(--bg-soft); }
+    .row.is-active { background: var(--bg-soft); box-shadow: inset 3px 0 0 var(--accent); }
+    .row-sym {
+      width: 34px; height: 34px; flex: none;
+      display: grid; place-items: center;
+      font-family: var(--font-mono); font-size: 11px;
+      background: var(--bg-soft); border: 1px solid var(--line-color); color: var(--accent);
+    }
+    .row-main { min-width: 0; flex: 1; }
+    .row-title { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+    .pill {
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+      padding: 2px 6px; border: 1px solid var(--line-color); color: var(--ink-faint);
+    }
+    .pill.on { border-color: var(--success); color: var(--success); }
+    .pill.draft { border-color: var(--danger); color: var(--danger); }
+    .pill.feat { border-color: var(--accent); color: var(--accent); }
+    .list-empty { padding: 26px 18px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+    /* ---------- form ---------- */
+    .editor { padding: 22px; }
+    .editor-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .editor-head h1 { font-family: var(--font-display); font-size: 24px; flex: 1; min-width: 200px; }
+    .slug-line { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-bottom: 20px; }
+
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .grid .full { grid-column: 1 / -1; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+    label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; color: var(--ink-faint); margin-bottom: 6px; text-transform: uppercase; }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%; font-family: var(--font-body); font-size: 14px;
+      padding: 10px 12px; color: var(--ink); background: var(--bg-soft);
+      border: 1px solid var(--line-color); outline: none;
+      transition: border-color 0.18s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+    .hint { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 5px; }
+
+    .checks { display: flex; gap: 22px; flex-wrap: wrap; padding-top: 4px; }
+    .check { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
+    .check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+    .drop {
+      border: 1px dashed var(--line-strong); padding: 16px;
+      display: flex; align-items: center; gap: 16px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop:hover, .drop.is-over { border-color: var(--accent); background: var(--bg-soft); }
+    .drop-preview { width: 92px; height: 62px; flex: none; display: grid; place-items: center; background: var(--bg-soft); border: 1px solid var(--line-color); overflow: hidden; }
+    .drop-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .drop-preview span { font-family: var(--font-mono); font-size: 16px; color: var(--ink-faint); }
+    .drop-text { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); word-break: break-all; }
+    .drop strong { display: block; font-family: var(--font-body); font-size: 13px; color: var(--ink); font-weight: 500; margin-bottom: 3px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line-color); }
+    .actions .spacer { flex: 1; }
+
+    /* ---------- toast ---------- */
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; z-index: 60;
+      max-width: 380px; padding: 13px 16px;
+      font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
+      background: var(--bg-panel); border: 1px solid var(--line-strong); color: var(--ink);
+      opacity: 0; transform: translateY(10px); pointer-events: none;
+      transition: opacity 0.24s var(--ease-out), transform 0.24s var(--ease-out);
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok { border-color: var(--success); }
+    .toast.err { border-color: var(--danger); }
+
+    .hidden { display: none !important; }
+    .empty-state { padding: 60px 22px; text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <img src="./assets/lumina-logo-dark.png" alt="" />
+    <span class="bar-title">// ADMIN_CONSOLE</span>
+    <span class="bar-spacer"></span>
+    <span class="bar-user" id="bar-user"></span>
+    <button class="ghost tiny" id="theme-toggle" type="button">Theme</button>
+    <a class="btn tiny" href="./index.html">View site</a>
+    <button class="ghost tiny hidden" id="logout" type="button">Sign out</button>
+  </header>
+
+  <main>
+    <!-- login gate -->
+    <section class="frame gate-wrap" id="gate">
+      <h1>Admin access</h1>
+      <p>Sign in with an authorised Google account to manage projects.</p>
+      <div id="gsi-button"></div>
+      <p class="gate-note" id="gate-note">Loading Google sign-in…</p>
+    </section>
+
+    <!-- console -->
+    <section class="console hidden" id="console">
+      <aside class="frame">
+        <div class="panel-head">
+          <h2>Projects</h2>
+          <span class="count" id="list-count">0</span>
+          <span class="bar-spacer"></span>
+          <button class="tiny primary" id="new-project" type="button">New</button>
+        </div>
+        <div class="list" id="list"></div>
+      </aside>
+
+      <div class="frame" id="editor-panel">
+        <div class="empty-state" id="editor-empty">Select a project, or create a new one.</div>
+
+        <form class="editor hidden" id="editor" novalidate>
+          <div class="editor-head">
+            <h1 id="editor-heading">New project</h1>
+            <span class="pill" id="editor-status"></span>
+          </div>
+          <p class="slug-line" id="editor-slug"></p>
+
+          <div class="grid">
+            <div>
+              <label for="f-title">Title</label>
+              <input type="text" id="f-title" maxlength="120" required />
+            </div>
+            <div>
+              <label for="f-symbol">Symbol (1-4 chars)</label>
+              <input type="text" id="f-symbol" maxlength="4" required />
+              <p class="hint">Shown on the card when there is no image.</p>
+            </div>
+            <div>
+              <label for="f-category">Category / lane</label>
+              <input type="text" id="f-category" maxlength="40" list="category-list" required />
+              <datalist id="category-list"></datalist>
+            </div>
+            <div>
+              <label for="f-year">Year</label>
+              <input type="number" id="f-year" min="2000" max="2100" required />
+            </div>
+            <div class="full">
+              <label for="f-tagline">Carousel tagline</label>
+              <input type="text" id="f-tagline" maxlength="60" />
+              <p class="hint">Home page carousel label, e.g. PC BUILD COACH. Falls back to the category.</p>
+            </div>
+            <div class="full">
+              <label for="f-blurb">Description</label>
+              <textarea id="f-blurb" maxlength="600" required></textarea>
+              <p class="hint">Used on both the archive grid and the home carousel.</p>
+            </div>
+            <div class="full">
+              <label>Project image</label>
+              <div class="drop" id="drop">
+                <div class="drop-preview" id="drop-preview"><span>--</span></div>
+                <div style="flex:1; min-width:0;">
+                  <strong>Drop an image, or click to browse</strong>
+                  <div class="drop-text" id="drop-text">PNG, JPEG, or WebP. Max 5MB.</div>
+                </div>
+                <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" class="hidden" />
+              </div>
+              <p class="hint" id="image-url-hint"></p>
+            </div>
+            <div class="full">
+              <label for="f-url">Live URL (optional)</label>
+              <input type="text" id="f-url" placeholder="https://" />
+            </div>
+            <div>
+              <label for="f-stack">Stack (comma separated, max 6)</label>
+              <input type="text" id="f-stack" />
+            </div>
+            <div>
+              <label for="f-tags">Tags (comma separated, max 12)</label>
+              <input type="text" id="f-tags" />
+            </div>
+            <div>
+              <label for="f-sort">Sort order</label>
+              <input type="number" id="f-sort" />
+              <p class="hint">Lower numbers come first.</p>
+            </div>
+            <div>
+              <label>Visibility</label>
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="f-published" /> Published</label>
+                <label class="check"><input type="checkbox" id="f-featured" /> Featured</label>
+              </div>
+              <p class="hint">Featured projects appear in the home page carousel.</p>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" type="submit" id="save">Save project</button>
+            <button class="ghost" type="button" id="reset">Revert</button>
+            <span class="spacer"></span>
+            <button class="danger" type="button" id="unpublish">Unpublish</button>
+            <button class="danger" type="button" id="destroy">Delete permanently</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="./assets/projects-feed.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const { escapeHtml, safeImage } = window.LuminaProjects;
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        gate: $("gate"), console: $("console"), note: $("gate-note"), gsi: $("gsi-button"),
+        logout: $("logout"), user: $("bar-user"), list: $("list"), listCount: $("list-count"),
+        editor: $("editor"), editorEmpty: $("editor-empty"), heading: $("editor-heading"),
+        status: $("editor-status"), slug: $("editor-slug"), toast: $("toast"),
+        newProject: $("new-project"), themeToggle: $("theme-toggle"),
+        drop: $("drop"), dropPreview: $("drop-preview"), dropText: $("drop-text"),
+        fileInput: $("file-input"), imageHint: $("image-url-hint"), categoryList: $("category-list"),
+        save: $("save"), reset: $("reset"), unpublish: $("unpublish"), destroy: $("destroy")
+      };
+
+      const F = {
+        title: $("f-title"), symbol: $("f-symbol"), category: $("f-category"), year: $("f-year"),
+        tagline: $("f-tagline"), blurb: $("f-blurb"), url: $("f-url"), stack: $("f-stack"),
+        tags: $("f-tags"), sort: $("f-sort"), published: $("f-published"), featured: $("f-featured")
+      };
+
+      let projects = [];
+      let current = null;   // the project being edited (null = new)
+      let imageUrl = null;  // current image value, relative path or absolute URL
+      let toastTimer = null;
+
+      /* ---------- feedback ---------- */
+      function toast(message, kind) {
+        els.toast.textContent = message;
+        els.toast.className = "toast show " + (kind || "");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { els.toast.className = "toast " + (kind || ""); }, 5200);
+      }
+
+      function busy(on) {
+        els.save.disabled = on;
+        els.save.textContent = on ? "Saving…" : "Save project";
+      }
+
+      /* ---------- api ---------- */
+      let sessionExpiredHandled = false;
+
+      function sessionExpired() {
+        if (sessionExpiredHandled) return;
+        sessionExpiredHandled = true;
+        toast("Your session ended. Signing you out…", "err");
+        // A reload lands on the login gate, which is the only correct place to
+        // be once the cookie is gone or the account left the allowlist.
+        setTimeout(() => location.reload(), 1200);
+      }
+
+      async function api(path, options) {
+        // Headers are merged, not replaced: a caller passing Content-Type must
+        // not silently drop Accept.
+        const { headers, ...rest } = options || {};
+        const response = await fetch(path, {
+          credentials: "same-origin",
+          ...rest,
+          headers: { Accept: "application/json", ...(headers || {}) }
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
+
+        if (response.status === 401) {
+          sessionExpired();
+          throw new Error("Session expired.");
+        }
+        if (!response.ok) {
+          throw new Error(data.error || ("Request failed (" + response.status + ")"));
+        }
+        return data;
+      }
+
+      /* ---------- theme ---------- */
+      els.themeToggle.addEventListener("click", () => {
+        const html = document.documentElement;
+        const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        html.setAttribute("data-theme", next);
+        try { localStorage.setItem("lumina-theme", next); } catch (_) {}
+        document.querySelectorAll('img[src*="lumina-logo"]').forEach((img) => {
+          img.src = next === "dark" ? "./assets/lumina-logo-dark.png" : "./assets/lumina-logo-light.png";
+        });
+      });
+
+      /* ---------- auth ---------- */
+      async function loadConfig() {
+        try {
+          const config = await api("/api/auth/config");
+          if (!config.configured) {
+            els.note.textContent = "Auth is not configured on the server yet. Set GOOGLE_CLIENT_ID and AUTH_SECRET.";
+            return null;
+          }
+          return config.clientId;
+        } catch (err) {
+          els.note.textContent = "Could not reach the auth endpoint: " + err.message;
+          return null;
+        }
+      }
+
+      function renderGoogleButton(clientId) {
+        if (!window.google || !window.google.accounts) {
+          els.note.textContent = "Google sign-in script was blocked. Check your connection or extensions.";
+          return;
+        }
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: onCredential,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+        window.google.accounts.id.renderButton(els.gsi, {
+          theme: document.documentElement.getAttribute("data-theme") === "dark" ? "filled_black" : "outline",
+          size: "large",
+          width: 380,
+          text: "signin_with",
+          shape: "rectangular"
+        });
+        els.note.textContent = "Only allowlisted Google accounts can sign in.";
+      }
+
+      async function onCredential(response) {
+        els.note.textContent = "Verifying…";
+        try {
+          const result = await api("/api/auth/google", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: response.credential })
+          });
+          showConsole(result.email);
+          toast("Signed in as " + result.email, "ok");
+        } catch (err) {
+          els.note.textContent = err.message;
+          toast(err.message, "err");
+        }
+      }
+
+      els.logout.addEventListener("click", async () => {
+        try { await api("/api/auth/logout", { method: "POST" }); } catch (_) {}
+        location.reload();
+      });
+
+      function showConsole(email) {
+        els.gate.classList.add("hidden");
+        els.console.classList.remove("hidden");
+        els.logout.classList.remove("hidden");
+        els.user.textContent = email;
+        loadProjects();
+      }
+
+      /* ---------- list ---------- */
+      async function loadProjects() {
+        try {
+          const data = await api("/api/admin/projects");
+          projects = data.projects || [];
+          renderList();
+        } catch (err) {
+          toast("Could not load projects: " + err.message, "err");
+        }
+      }
+
+      function renderList() {
+        els.listCount.textContent = String(projects.length);
+        if (!projects.length) {
+          els.list.innerHTML = '<p class="list-empty">No projects yet. Create one to get started.</p>';
+          return;
+        }
+        els.list.innerHTML = projects.map((p) => {
+          const pills = [
+            p.published ? '<span class="pill on">Live</span>' : '<span class="pill draft">Draft</span>',
+            p.featured ? '<span class="pill feat">Feat</span>' : ""
+          ].join("");
+          const active = current && current.slug === p.slug ? " is-active" : "";
+          return `
+            <div class="row${active}" data-slug="${escapeHtml(p.slug)}" role="button" tabindex="0">
+              <div class="row-sym">${escapeHtml(p.symbol)}</div>
+              <div class="row-main">
+                <div class="row-title">${escapeHtml(p.title)}</div>
+                <div class="row-sub">${escapeHtml(p.category)} · ${escapeHtml(p.year)}</div>
+              </div>
+              <div style="display:flex; gap:5px; flex:none;">${pills}</div>
+            </div>`;
+        }).join("");
+      }
+
+      els.list.addEventListener("click", (event) => {
+        const row = event.target.closest("[data-slug]");
+        if (!row) return;
+        selectProject(row.dataset.slug);
+      });
+      els.list.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const row = event.target.closest("[data-slug]");
+        if (!row) return;
+        event.preventDefault();
+        selectProject(row.dataset.slug);
+      });
+
+      /* ---------- editor ---------- */
+      function selectProject(slug) {
+        const project = projects.find((p) => p.slug === slug);
+        if (!project) return;
+        current = project;
+        fill(project);
+        renderList();
+      }
+
+      function fill(project) {
+        els.editorEmpty.classList.add("hidden");
+        els.editor.classList.remove("hidden");
+        els.heading.textContent = project.title || "New project";
+        els.slug.textContent = project.slug ? "slug: " + project.slug : "a slug will be generated from the title";
+        els.status.textContent = project.published ? "LIVE" : "DRAFT";
+        els.status.className = "pill " + (project.published ? "on" : "draft");
+
+        F.title.value = project.title || "";
+        F.symbol.value = project.symbol || "";
+        F.category.value = project.category || "";
+        F.year.value = project.year || new Date().getFullYear();
+        F.tagline.value = project.tagline || "";
+        F.blurb.value = project.blurb || "";
+        F.url.value = project.url || "";
+        F.stack.value = (project.stack || []).join(", ");
+        F.tags.value = (project.tags || []).join(", ");
+        F.sort.value = project.sortOrder !== undefined ? project.sortOrder : 0;
+        F.published.checked = project.published !== false;
+        F.featured.checked = Boolean(project.featured);
+
+        imageUrl = project.image || null;
+        renderPreview();
+
+        // destructive buttons only make sense on a saved project
+        els.unpublish.classList.toggle("hidden", !project.slug);
+        els.destroy.classList.toggle("hidden", !project.slug);
+        updateCategoryOptions();
+      }
+
+      function updateCategoryOptions() {
+        els.categoryList.innerHTML = Array.from(new Set(projects.map((p) => p.category)))
+          .filter(Boolean)
+          .map((c) => `<option value="${escapeHtml(c)}"></option>`)
+          .join("");
+      }
+
+      function renderPreview() {
+        const src = safeImage(imageUrl);
+        els.dropPreview.innerHTML = src
+          ? `<img src="${escapeHtml(src)}" alt="" />`
+          : "<span>--</span>";
+        els.dropText.textContent = imageUrl || "PNG, JPEG, or WebP. Max 5MB.";
+        els.imageHint.textContent = imageUrl ? "" : "No image yet. The card falls back to the symbol tile.";
+      }
+
+      function startNew() {
+        current = null;
+        fill({
+          title: "", symbol: "", category: "", year: new Date().getFullYear(),
+          tagline: "", blurb: "", url: "", stack: [], tags: [], sortOrder: 0,
+          published: true, featured: false, image: null, slug: ""
+        });
+        els.heading.textContent = "New project";
+        els.slug.textContent = "a slug will be generated from the title";
+        els.status.textContent = "NEW";
+        els.status.className = "pill";
+        els.unpublish.classList.add("hidden");
+        els.destroy.classList.add("hidden");
+        renderList();
+      }
+
+      els.newProject.addEventListener("click", startNew);
+
+      function collect() {
+        const toList = (value) => String(value || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        return {
+          title: F.title.value.trim(),
+          symbol: F.symbol.value.trim().toUpperCase(),
+          category: F.category.value.trim(),
+          year: Number.parseInt(F.year.value, 10),
+          tagline: F.tagline.value.trim(),
+          blurb: F.blurb.value.trim(),
+          image_url: imageUrl,
+          url: F.url.value.trim(),
+          stack: toList(F.stack.value),
+          tags: toList(F.tags.value),
+          sort_order: Number.parseInt(F.sort.value, 10) || 0,
+          published: F.published.checked,
+          featured: F.featured.checked
+        };
+      }
+
+      els.editor.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = collect();
+        if (!payload.title || !payload.symbol || !payload.category || !payload.blurb) {
+          toast("Title, symbol, category, and description are required.", "err");
+          return;
+        }
+        busy(true);
+        try {
+          if (current && current.slug) {
+            const data = await api("/api/admin/projects/" + encodeURIComponent(current.slug), {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            current = data.project;
+            toast("Saved. Live on the site within ~30 seconds.", "ok");
+          } else {
+            const data = await api("/api/admin/projects", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            current = data.project;
+            toast("Created " + data.project.slug + ".", "ok");
+          }
+          await loadProjects();
+          fill(current);
+        } catch (err) {
+          toast(err.message, "err");
+        } finally {
+          busy(false);
+        }
+      });
+
+      els.reset.addEventListener("click", () => {
+        if (current) fill(current);
+        else startNew();
+      });
+
+      els.unpublish.addEventListener("click", async () => {
+        if (!current || !current.slug) return;
+        if (!confirm("Unpublish " + current.title + "? It will disappear from the public site but stay in the database.")) return;
+        try {
+          await api("/api/admin/projects/" + encodeURIComponent(current.slug), { method: "DELETE" });
+          toast("Unpublished. Restore it by ticking Published and saving.", "ok");
+          await loadProjects();
+          selectProject(current.slug);
+        } catch (err) {
+          toast(err.message, "err");
+        }
+      });
+
+      els.destroy.addEventListener("click", async () => {
+        if (!current || !current.slug) return;
+        if (!confirm("Permanently delete " + current.title + "? This cannot be undone.")) return;
+        if (!confirm("Really delete? The database row is removed for good.")) return;
+        try {
+          await api("/api/admin/projects/" + encodeURIComponent(current.slug) + "?hard=1", { method: "DELETE" });
+          toast("Deleted " + current.title + ".", "ok");
+          current = null;
+          els.editor.classList.add("hidden");
+          els.editorEmpty.classList.remove("hidden");
+          await loadProjects();
+        } catch (err) {
+          toast(err.message, "err");
+        }
+      });
+
+      /* ---------- image upload ---------- */
+      els.drop.addEventListener("click", (event) => {
+        // The synthetic click from fileInput.click() bubbles back up to here.
+        // Without this guard the handler re-enters itself.
+        if (event.target === els.fileInput) return;
+        els.fileInput.click();
+      });
+      els.fileInput.addEventListener("change", () => {
+        if (els.fileInput.files && els.fileInput.files[0]) upload(els.fileInput.files[0]);
+      });
+      ["dragenter", "dragover"].forEach((type) => {
+        els.drop.addEventListener(type, (e) => { e.preventDefault(); els.drop.classList.add("is-over"); });
+      });
+      ["dragleave", "drop"].forEach((type) => {
+        els.drop.addEventListener(type, (e) => { e.preventDefault(); els.drop.classList.remove("is-over"); });
+      });
+      els.drop.addEventListener("drop", (event) => {
+        const file = event.dataTransfer?.files?.[0];
+        if (file) upload(file);
+      });
+
+      async function upload(file) {
+        const body = new FormData();
+        body.append("file", file);
+        els.dropText.textContent = "Uploading " + file.name + "…";
+        try {
+          const data = await api("/api/admin/upload", { method: "POST", body });
+          imageUrl = data.url;
+          renderPreview();
+          toast("Image uploaded (" + Math.round(data.bytes / 1024) + "KB). Save to apply.", "ok");
+        } catch (err) {
+          els.dropText.textContent = "PNG, JPEG, or WebP. Max 5MB.";
+          toast(err.message, "err");
+        } finally {
+          els.fileInput.value = "";
+        }
+      }
+
+      /* ---------- boot ---------- */
+      (async function boot() {
+        try {
+          const session = await api("/api/auth/me");
+          if (session.authenticated) {
+            showConsole(session.email);
+            return;
+          }
+        } catch (_) { /* fall through to the gate */ }
+
+        const clientId = await loadConfig();
+        if (!clientId) return;
+        if (window.google && window.google.accounts) renderGoogleButton(clientId);
+        else window.addEventListener("load", () => renderGoogleButton(clientId));
+      })();
+    })();
+  </script>
+</body>
+</html>
