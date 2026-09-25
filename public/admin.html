@@ -786,6 +786,9 @@
     }
     .tile-value small { font-size: 0.42em; color: var(--ink-faint); margin-left: 6px; letter-spacing: 0.06em; }
     .tile-foot { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 8px; }
+    /* Both label variants ship; CSS picks one. Keeps the phone cards from
+       truncating "LIVE SESSIONS" down to nothing. */
+    .tile-label-short { display: none; }
     .tile-spark { display: flex; align-items: flex-end; gap: 3px; height: 26px; margin-top: 12px; }
     .tile-spark i {
       flex: 1; min-width: 2px; height: 6%;
@@ -795,6 +798,40 @@
     }
     .tile-spark i:last-child { background: var(--accent); }
     @keyframes growUp { from { transform: scaleY(0.05); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
+    /* ---------------------------------------------------------------------
+       Overview tiles, phone layout
+       Four tall stacked cards are a column of scrolling for four numbers. On a
+       phone they become one row of four compact cards: icon, value, label. The
+       unit suffix and the foot line are the first things to go, since they are
+       the detail you open the section for anyway.
+       --------------------------------------------------------------------- */
+    @media (max-width: 899px) {
+      .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+      .tile { padding: 11px 10px 12px; }
+      .tile-top { margin-bottom: 9px; gap: 7px; }
+      .tile-icon { width: 27px; height: 27px; }
+      .tile-icon .icon { width: 15px; height: 15px; }
+      .tile-value { font-size: clamp(1.3rem, 7.4vw, 1.75rem); }
+      .tile-value small { display: none; }
+      .tile-label-full { display: none; }
+      .tile-label-short { display: inline; }
+      .tile .label { font-size: 9px; letter-spacing: 0.08em; line-height: 1.25; }
+      .tile-foot {
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; font-size: 8.5px; line-height: 1.35; margin-top: 7px;
+      }
+      .tile-spark { height: 4px; margin-top: 8px; gap: 1px; overflow: hidden; }
+      .tile-spark i { min-width: 1px; }
+      /* Below this nothing but the number and its icon will fit. */
+      @media (max-width: 400px) {
+        .tile { padding: 9px 7px 10px; }
+        .tile-icon { width: 22px; height: 22px; }
+        .tile-value { font-size: 1.25rem; }
+        .tile-foot { display: none; }
+        .tile-spark { display: none; }
+      }
+    }
 
     .two-col { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 14px; }
     @media (min-width: 1080px) { .two-col { grid-template-columns: 1.35fr 1fr; } }
@@ -2645,12 +2682,15 @@
 
     const SKELETON_TILES = Array.from({ length: 4 }, () => '<div class="frame tile skeleton" style="height:132px"></div>').join("");
 
-    function tile({ icon, label, value, unit, foot, spark }) {
+    function tile({ icon, label, shortLabel, value, unit, foot, spark }) {
+      const text =
+        '<span class="tile-label-full">' + escapeHtml(label) + "</span>" +
+        (shortLabel ? '<span class="tile-label-short">' + escapeHtml(shortLabel) + "</span>" : "");
       return (
         '<article class="frame tile">' +
         '<div class="tile-top">' +
-        '<span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="' + icon + '"/></svg></span>' +
-        '<span class="label">' + escapeHtml(label) + "</span></div>" +
+        '<span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="' + icon + '"/></svg></span>' +
+        '<span class="label">' + text + "</span></div>" +
         '<div class="tile-value">' + escapeHtml(String(value)) + (unit ? "<small>" + escapeHtml(unit) + "</small>" : "") + "</div>" +
         (foot ? '<div class="tile-foot">' + escapeHtml(foot) + "</div>" : "") +
         (spark || "") +
@@ -2678,25 +2718,25 @@
 
         el.tiles.innerHTML = [
           tile({
-            icon: "#i-grid", label: "Projects",
+            icon: "#i-grid", label: "Projects", shortLabel: "Works",
             value: data.projects.total,
             unit: data.projects.published + " live",
             foot: data.projects.drafts + " draft(s) · " + data.projects.featured + " featured"
           }),
           tile({
-            icon: "#i-activity", label: "Actions · 24h",
+            icon: "#i-activity", label: "Actions · 24h", shortLabel: "24 hours",
             value: data.audit.total,
             unit: data.audit.actors + " operator(s)",
             foot: data.audit.denied + " denied · " + data.audit.failed + " failed"
           }),
           tile({
-            icon: "#i-users", label: "Roster",
+            icon: "#i-users", label: "Roster", shortLabel: "Roster",
             value: data.roster.total,
             unit: data.roster.owners + " owner(s)",
             foot: data.roster.admins + " admin · " + data.roster.viewers + " viewer"
           }),
           tile({
-            icon: "#i-monitor", label: "Live sessions",
+            icon: "#i-monitor", label: "Live sessions", shortLabel: "Sessions",
             value: data.sessions.live,
             foot: "Across all operators",
             spark: sparkline(data.series)
@@ -3223,10 +3263,10 @@
       el.adminsBody.classList.remove("is-loading");
 
       el.adminsTiles.innerHTML = [
-        tile({ icon: "#i-users", label: "Total access", value: counts.total || 0, foot: (counts.suspended || 0) + " suspended" }),
-        tile({ icon: U.roleIcon("owner"), label: "Owners", value: counts.owners || 0, foot: "Can manage the roster" }),
-        tile({ icon: U.roleIcon("admin"), label: "Admins", value: counts.admins || 0, foot: "Projects and sessions" }),
-        tile({ icon: "#i-clock", label: "Active sessions", value: counts.activeSessions || 0, foot: (counts.signedInThisWeek || 0) + " signed in this week" })
+        tile({ icon: "#i-users", label: "Total access", shortLabel: "Total", value: counts.total || 0, foot: (counts.suspended || 0) + " suspended" }),
+        tile({ icon: U.roleIcon("owner"), label: "Owners", shortLabel: "Owners", value: counts.owners || 0, foot: "Can manage the roster" }),
+        tile({ icon: U.roleIcon("admin"), label: "Admins", shortLabel: "Admins", value: counts.admins || 0, foot: "Projects and sessions" }),
+        tile({ icon: "#i-clock", label: "Active sessions", shortLabel: "Sessions", value: counts.activeSessions || 0, foot: (counts.signedInThisWeek || 0) + " signed in this week" })
       ].join("");
 
       if (!list.length) {

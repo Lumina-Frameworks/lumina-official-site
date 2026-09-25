@@ -427,6 +427,31 @@ describe("admin.html wiring", () => {
     assert.match(html, /if \(!active\.offsetParent\) return;/);
   });
 
+  test("the overview tiles are one row of four on a phone", () => {
+    // Four tall stacked cards were a column of scrolling for four numbers.
+    assert.match(html, /\.tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); gap: 8px; \}/);
+    // The desktop rule keeps the flexible auto-fit grid.
+    assert.match(html, /\.tiles \{ display: grid; gap: 14px; grid-template-columns: repeat\(auto-fit, minmax\(215px, 1fr\)\); \}/);
+
+    // Detail lines fold away rather than being cut off mid-word.
+    assert.match(html, /\.tile-value small \{ display: none; \}/);
+    assert.match(html, /\.tile-foot \{\s*\n\s*display: -webkit-box; -webkit-line-clamp: 2;/);
+    // And below 400px only the number and its icon survive.
+    assert.match(html, /@media \(max-width: 400px\) \{[\s\S]*?\.tile-foot \{ display: none; \}/);
+  });
+
+  test("tiles carry a short label so nothing truncates", () => {
+    // "LIVE SESSIONS" does not fit a quarter of a 360px screen.
+    assert.match(html, /\.tile-label-short \{ display: none; \}/);
+    assert.match(html, /\.tile-label-full \{ display: none; \}/);
+    assert.match(html, /\.tile-label-short \{ display: inline; \}/);
+    assert.match(html, /shortLabel: "Sessions"/);
+    assert.match(html, /shortLabel: "24 hours"/);
+    assert.match(html, /shortLabel: "Works"/);
+    // Both tile groups supply them, or one group truncates again.
+    assert.equal((html.match(/shortLabel:/g) || []).length, 8, "a tile is missing its short label");
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
