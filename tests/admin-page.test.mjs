@@ -667,6 +667,24 @@ describe("admin.html wiring", () => {
     assert.match(html, /body\.drawer-open \.drawer-panel \{ pointer-events: auto; \}/);
   });
 
+  test("the roster card cannot push its role pill off the edge", () => {
+    // The email used to share the header row with the pills. A long address
+    // beside two flex:none pills pushed the badge past the card and clipped it.
+    const top = html.match(/<div class="ac-top">[\s\S]*?<\/span><\/div>/);
+    assert.ok(top, "no card header row");
+    assert.ok(!/who-mail/.test(top[0]), "the email is back in the header row");
+
+    // It is its own grid row on the card instead.
+    assert.match(html, /'<span class="who-mail">' \+ escapeHtml\(admin\.email\) \+ "<\/span>" \+/);
+    assert.match(html, /\.admin-card > \.who-mail \{ grid-row: 2; \}/);
+
+    // And the pills never shrink, so their text cannot be the thing that gives.
+    assert.match(html, /\.ac-pills \{\s*\n\s*display: flex; gap: 5px; flex: 0 0 auto;/);
+    assert.match(html, /\.ac-pills \.pill \{ white-space: nowrap; \}/);
+    // The name is the flexible one, and it ellipsises.
+    assert.match(html, /\.ac-who \{ min-width: 0; flex: 1 1 auto; \}/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

@@ -1245,12 +1245,17 @@
        fields that matter stacked, rather than six columns in a scroller.
        --------------------------------------------------------------------- */
     .admin-cards { display: none; }
+    /* Shared by the phone cards and the roster table's cell subtitle. */
+    .who-mail {
+      font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     @media (max-width: 899px) {
       #admins-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px; }
       .admin-cards { display: grid; }
       .roster-table { display: none; }
       .admin-card {
-        display: grid; gap: 10px; width: 100%; text-align: left;
+        display: grid; gap: 7px; width: 100%; text-align: left;
         padding: 13px 14px; background: transparent; border: 0;
         border-bottom: 1px solid var(--line-color);
         clip-path: none; min-height: 0; animation: none;
@@ -1259,23 +1264,28 @@
       .admin-card::after { display: none; }
       .admin-card:hover, .admin-card:active { background: var(--bg-soft); transform: none; }
       .admin-card.suspended .who-mail { color: var(--ink-faint); }
+      /* The header row carries the name and the role pills, nothing else. The
+         email used to live here too, and with a long address beside two
+         flex:none pills the badge was pushed past the card edge and clipped. */
       .ac-top { display: flex; align-items: center; gap: 11px; }
       .ac-top .avatar { width: 34px; height: 34px; font-size: 11px; }
-      .ac-who { min-width: 0; flex: 1; }
+      .ac-who { min-width: 0; flex: 1 1 auto; }
       .ac-name {
-        font-size: 13.5px; font-weight: 500;
+        display: block; font-size: 13.5px; font-weight: 500;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .who-mail {
-        font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      .ac-pills {
+        display: flex; gap: 5px; flex: 0 0 auto; align-items: center;
+        min-width: 0; flex-wrap: wrap; justify-content: flex-end;
       }
-      .ac-pills { display: flex; gap: 5px; flex: none; align-items: center; }
+      .ac-pills .pill { white-space: nowrap; }
       .ac-meta {
         display: flex; flex-wrap: wrap; gap: 3px 12px;
         font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
       }
       .ac-meta b { color: var(--ink-soft); font-weight: 400; }
+      /* The address is its own grid row, so it cannot contest the header. */
+      .admin-card > .who-mail { grid-row: 2; }
       .ac-do {
         display: flex; align-items: center; justify-content: space-between; gap: 10px;
       }
@@ -3694,19 +3704,20 @@
       ).join("");
 
       // Phone equivalent: what the roster is actually for, without six columns
-      // in a 640px scroller.
+      // in a 640px scroller. The email is its own run below the header, so the
+      // role pills cannot be pushed off the card edge by a long address.
       el.adminCards.innerHTML = rows.map(({ admin, self, statusPill, action, avatar, name, seen }) =>
         '<div class="admin-card ' + (admin.status === "suspended" ? "suspended" : "") + '">' +
         '<div class="ac-top">' +
         '<span class="avatar">' + avatar + "</span>" +
         '<span class="ac-who">' +
         '<span class="ac-name">' + escapeHtml(name) + (self ? ' <span class="pill">you</span>' : "") + "</span>" +
-        '<span class="who-mail">' + escapeHtml(admin.email) + "</span>" +
         "</span>" +
         '<span class="ac-pills">' +
         '<span class="pill ' + escapeHtml(admin.role) + '">' + escapeHtml(U.roleLabel(admin.role)) + "</span>" +
         statusPill +
         "</span></div>" +
+        '<span class="who-mail">' + escapeHtml(admin.email) + "</span>" +
         '<div class="ac-meta">' +
         "<span>last seen <b>" + escapeHtml(seen) + "</b></span>" +
         "<span><b>" + (admin.loginCount || 0) + "</b> sign-ins</span>" +
