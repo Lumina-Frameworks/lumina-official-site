@@ -278,17 +278,45 @@ describe("admin.html wiring", () => {
     assert.match(html, /class="row-main"' \+ delay/);
   });
 
-  test("the bar actions are icon-only squares with real labels", () => {
-    for (const id of ["quick-logout", "theme-toggle", "view-site"]) {
-      const button = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
-      assert.ok(button, `no ${id}`);
-      assert.match(button[0], /icon-only/, `${id} is not icon-only`);
-      assert.match(button[0], /aria-label="[^"]+"/, `${id} has no aria-label`);
-      assert.match(button[0], /title="[^"]+"/, `${id} has no tooltip`);
+  test("the session actions live in the drawer, icon-only and labelled", () => {
+    // One set of controls, in the drawer. On a phone the drawer is the
+    // navigation; on desktop it is the overflow menu, so nothing is duplicated
+    // in the DOM.
+    for (const id of ["quick-logout", "theme-toggle", "drawer-site", "drawer-refresh"]) {
+      const control = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
+      assert.ok(control, `no ${id}`);
+      assert.match(control[0], /icon-only/, `${id} is not icon-only`);
+      assert.match(control[0], /aria-label="[^"]+"/, `${id} has no aria-label`);
+      assert.match(control[0], /title="[^"]+"/, `${id} has no tooltip`);
     }
-    // No leftover text labels inside those controls.
-    assert.ok(!/btn-label">(Sign out|View site)/.test(html), "a text label survived in the bar");
-    assert.match(html, /\.icon-only \{[\s\S]*?width: 38px/);
+    // They sit inside the drawer footer, not the bar.
+    const footer = html.match(/<div class="drawer-foot">[\s\S]*?\n      <\/div>/);
+    assert.ok(footer, "no drawer footer");
+    for (const id of ["quick-logout", "theme-toggle", "drawer-site", "drawer-refresh"]) {
+      assert.ok(footer[0].includes(`id="${id}"`), `${id} is not in the drawer footer`);
+    }
+    assert.match(html, /\.drawer-actions \{ display: flex; gap: 8px; \}/);
+    assert.match(html, /\.drawer-actions \.btn-label \{ display: none; \}/);
+
+    // And the bar keeps only the operator chip, plus the panel bar's buttons.
+    assert.match(html, /\.bar #operator-chip \{ display: none; \}/);
+    assert.match(html, /\.panel-bar \.nav-toggle \{ display: none; \}/);
+    assert.match(html, /\.panel-bar \.nav-toggle \{ display: inline-flex; \}/);
+  });
+
+  test("both hamburgers drive the same menu", () => {
+    // The bar's toggle is the phone's, the panel bar's is the desktop overflow
+    // button. Two elements, one menu, so both ids are needed and unique.
+    assert.equal((html.match(/id="nav-toggle"/g) || []).length, 1);
+    assert.equal((html.match(/id="menu-toggle"/g) || []).length, 1);
+    assert.match(html, /function toggleButtons\(\) \{\s*\n\s*return \[el\.navToggle, el\.menuToggle\]\.filter\(Boolean\);/);
+    assert.match(html, /toggleButtons\(\)\.forEach\(\(button\) => \{\s*\n\s*button\.addEventListener\("click"/);
+    // The expand state is reported on both.
+    assert.match(html, /toggleButtons\(\)\.forEach\(\(button\) => button\.setAttribute\("aria-expanded", "true"\)\)/);
+    assert.match(html, /toggleButtons\(\)\.forEach\(\(button\) => button\.setAttribute\("aria-expanded", "false"\)\)/);
+    // On desktop it is a popover, so the page is not locked.
+    assert.match(html, /if \(isHandset\(\)\) holdScroll\(\);/);
+    assert.match(html, /if \(el\.drawerPanel\.contains\(event\.target\) \|\| el\.navToggle\.contains\(event\.target\)\) return;/);
   });
 
   test("the theme button shows the theme you would switch to", () => {
@@ -299,10 +327,15 @@ describe("admin.html wiring", () => {
     assert.ok(html.includes('id="i-sun"'), "no sun glyph");
     assert.ok(html.includes('id="i-moon"'), "no moon glyph");
     assert.ok(!html.includes('id="i-sparkle"'), "the old sparkle glyph is still in the sprite");
-    // The label is set from both the theme swap and boot, so it always names an
-    // action rather than a state.
-    assert.match(html, /setAttribute\(\s*"aria-label",\s*next === "dark" \? "Switch to light theme" : "Switch to dark theme"\s*\)/);
-    assert.match(html, /startingTheme === "dark" \? "Switch to light theme" : "Switch to dark theme"/);
+    // The label is set by one helper for every toggle, and it names an action
+    // rather than a state.
+    assert.match(html, /function syncThemeToggles\(theme\) \{/);
+    assert.match(html, /const label = theme === "dark" \? "Switch to light theme" : "Switch to dark theme";/);
+    assert.match(html, /el\.themeToggles\.forEach\(\(toggle\) => \{/);
+    // Called from both the swap and boot, so neither path can forget it.
+    assert.match(html, /syncThemeToggles\(next\);/);
+    assert.match(html, /syncThemeToggles\(startingTheme\);/);
+    assert.match(html, /el\.themeToggles\.forEach\(\(toggle\) => toggle\.addEventListener\("click", switchTheme\)\)/);
   });
 
   test("the light theme dims the backdrop instead of inverting it", () => {

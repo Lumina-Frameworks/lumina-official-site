@@ -372,14 +372,11 @@
       40% { opacity: 0.6; }
       100% { transform: translateX(100%); opacity: 0; }
     }
-    /* When the console is open, the bar reveals the operator chip and the two
-       actions. Keyed on a class on the bar itself, not on `hidden`, so the
-       phone layout can hide them without fighting an inline class toggle:
-       a `.bar #id { display: none }` rule would have beaten the JS that shows
-       them, breaking desktop instead of phone. */
-    .bar #operator-chip, .bar #quick-logout, .bar #view-site { display: none; }
+    /* The bar reveals the operator chip when the console is open. Keyed on a
+       class on the bar itself, not on `hidden`, so layout rules can hide it
+       without fighting an inline class toggle. */
+    .bar #operator-chip { display: none; }
     .bar.is-live #operator-chip { display: flex; }
-    .bar.is-live #quick-logout, .bar.is-live #view-site { display: inline-flex; }
     /* The whole brand block is the home link, so it needs to read as one. */
     .brand-link {
       display: flex; align-items: center; gap: 11px; min-width: 0;
@@ -476,7 +473,7 @@
          drawer is what a finger actually uses. */
       .tabs { display: none; }
       .panel-bar { padding: 10px var(--pad) 0; }
-      .panel-bar .spacer, .panel-bar #refresh { display: none; }
+      .panel-bar .spacer { display: none; }
       .tab-ink { display: none; }
 
       /* The bar keeps only the hamburger, the brand and the theme button: the
@@ -550,7 +547,7 @@
       }
       .drawer-link[aria-current="page"] .tab-badge { border-color: var(--accent); color: var(--accent); }
       .drawer-foot {
-        margin-top: auto; display: grid; gap: 8px;
+        margin-top: auto; display: grid; gap: 9px;
         padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
         border-top: 1px solid var(--line-color);
       }
@@ -558,8 +555,13 @@
         font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .drawer-foot .row { display: flex; gap: 8px; }
-      .drawer-foot .row > * { flex: 1 1 0; }
+      /* Actions are icon-only on a phone, so they line up in one row instead of
+         wrapping into a stack of full-width buttons. */
+      .drawer-actions { display: flex; gap: 8px; }
+      .drawer-actions .icon-only { flex: 1 1 0; }
+      /* The Site label would either wrap or squeeze the row; the icon and its
+         tooltip carry it. */
+      .drawer-actions .btn-label { display: none; }
     }
     /* The fixed-height shell is only correct at desktop width. Phone drives the
        drill-down and the whole page scrolls, which is what a finger expects. */
@@ -1339,6 +1341,32 @@
     .date-label { display: none; }
     /* Collapse toggle exists for the phone layout only. */
     .filters-toggle { display: none; }
+    /* The drawer is the phone's navigation, and the desktop overflow menu, so one
+       set of controls serves both and nothing is duplicated in the DOM. */
+    .panel-bar .nav-toggle { display: none; }
+    @media (min-width: 900px) {
+      .panel-bar .nav-toggle { display: inline-flex; }
+      /* Refresh lives in the drawer on every width. */
+      .panel-bar #refresh { display: none; }
+      .drawer { display: block; }
+      .drawer-veil { display: none; }
+      .drawer-panel {
+        display: flex; flex-direction: column;
+        position: fixed; top: calc(var(--bar-h) + 4px); right: var(--pad); z-index: 69;
+        width: 268px; max-width: calc(100vw - 2 * var(--pad));
+        max-height: calc(100dvh - var(--bar-h) - 24px); overflow-y: auto;
+        background: var(--bg-panel);
+        border: 1px solid var(--line-strong);
+        clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+        box-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.65);
+        transform: translateX(calc(100% + var(--pad) + 8px));
+        transition: transform 0.3s var(--ease-out), opacity 0.24s var(--ease-out);
+        opacity: 0; pointer-events: none;
+      }
+      body.drawer-open .drawer-panel { transform: none; opacity: 1; pointer-events: auto; }
+      .drawer-head .drawer-eyebrow { display: none; }
+      .drawer-head { padding: 11px 10px 11px 14px; }
+    }
     @media (max-width: 700px) {
       /* Search and the filter toggle share a line. Stacking every control was
          five rows of chrome before a single log entry was visible. */
@@ -1846,16 +1874,6 @@
     <span class="role-chip" id="bar-role">viewer</span>
   </div>
 
-  <button class="ghost tiny icon-only" id="quick-logout" type="button" aria-label="Sign out" title="Sign out">
-    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-logout"/></svg>
-  </button>
-  <button class="ghost tiny icon-only is-theme" id="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
-    <svg class="icon icon-sm icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sun"/></svg>
-    <svg class="icon icon-sm icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-moon"/></svg>
-  </button>
-  <a class="btn tiny icon-only" href="./index.html" id="view-site" aria-label="View site" title="View the public site">
-    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
-  </a>
 </header>
 
 <!-- ======================= drawer (phone navigation) ======================= -->
@@ -1894,17 +1912,23 @@
       </button>
     </nav>
 
-    <div class="drawer-foot">
-      <span class="who" id="drawer-who"></span>
-      <div class="row">
-        <button class="ghost tiny" id="drawer-refresh" type="button">
-          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-refresh"/></svg>
-          <span class="btn-label">Refresh</span>
-        </button>
-        <a class="btn tiny" href="./index.html" id="drawer-site">
-          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
-          <span class="btn-label">Site</span>
-        </a>
+      <div class="drawer-foot">
+        <span class="who" id="drawer-who"></span>
+        <div class="drawer-actions">
+          <button class="ghost tiny icon-only" id="drawer-refresh" type="button" aria-label="Refresh this section" title="Refresh this section">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-refresh"/></svg>
+          </button>
+          <button class="ghost tiny icon-only is-theme" id="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+            <svg class="icon icon-sm icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sun"/></svg>
+            <svg class="icon icon-sm icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-moon"/></svg>
+          </button>
+          <a class="btn tiny icon-only" href="./index.html" id="drawer-site" aria-label="View site" title="View the public site">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
+          </a>
+          <button class="ghost tiny icon-only danger" id="quick-logout" type="button" aria-label="Sign out" title="Sign out">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-logout"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </aside>
@@ -2003,9 +2027,12 @@
       <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
     </div>
     <span class="spacer"></span>
-    <button class="ghost tiny" id="refresh" type="button" title="Reload this section">
-      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>
+    <button class="ghost tiny" id="refresh" type="button" aria-label="Reload this section" title="Reload this section">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-refresh"/></svg>
       <span class="btn-label">Refresh</span>
+    </button>
+    <button class="ghost tiny icon-only nav-toggle" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer-panel">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-menu"/></svg>
     </button>
   </div>
 
@@ -2409,9 +2436,9 @@
       /* chrome */
       gate: $("gate"), console: $("console"), barStatus: $("bar-status"),
       avatar: $("operator-avatar"), user: $("bar-user"),
-      role: $("bar-role"), logout: $("quick-logout"), viewSite: $("view-site"),
+      role: $("bar-role"), logout: $("quick-logout"),
       bar: document.querySelector(".bar"), themeVeil: $("theme-veil"),
-      themeToggle: $("theme-toggle"), brandLogo: $("brand-logo"), brandHome: $("brand-home"),
+      themeToggles: document.querySelectorAll(".is-theme"), brandLogo: $("brand-logo"), brandHome: $("brand-home"),
       refresh: $("refresh"),
       tabInk: $("tab-ink"), toasts: $("toasts"),
       /* overview */
@@ -2446,7 +2473,8 @@
       confirmBody: $("confirm-body"), confirmGo: $("confirm-go"), confirmIcon: $("confirm-icon"),
       signout: $("signout"), signoutStatus: $("signout-status"), signoutSub: $("signout-sub"),
       /* navigation */
-      navToggle: $("nav-toggle"), drawerPanel: $("drawer-panel"), drawerVeil: $("drawer-veil"),
+      navToggle: $("nav-toggle"), menuToggle: $("menu-toggle"),
+      drawerPanel: $("drawer-panel"), drawerVeil: $("drawer-veil"),
       drawerClose: $("drawer-close"), drawerRefresh: $("drawer-refresh"), drawerWho: $("drawer-who"),
       drawerSection: $("drawer-section"), drawerSite: $("drawer-site"),
       /* audit */
@@ -2565,6 +2593,15 @@
       });
     }
 
+    /** Every theme control names the action, not the state it is in. */
+    function syncThemeToggles(theme) {
+      const label = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+      el.themeToggles.forEach((toggle) => {
+        toggle.setAttribute("aria-label", label);
+        toggle.setAttribute("title", label);
+      });
+    }
+
     /**
      * Theme swap behind an opaque veil.
      *
@@ -2581,10 +2618,7 @@
 
       // The preference is written either way; only the animation is optional.
       try { localStorage.setItem("lumina-theme", next); } catch (_) {}
-      el.themeToggle.setAttribute(
-        "aria-label",
-        next === "dark" ? "Switch to light theme" : "Switch to dark theme"
-      );
+      syncThemeToggles(next);
 
       if (reduce) {
         applyTheme(next);
@@ -2603,7 +2637,7 @@
       }, 260);
     }
 
-    el.themeToggle.addEventListener("click", switchTheme);
+    el.themeToggles.forEach((toggle) => toggle.addEventListener("click", switchTheme));
 
     /* ================= auth ================= */
 
@@ -2740,7 +2774,6 @@
     function markReturn() {
       try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
     }
-    el.viewSite?.addEventListener("click", markReturn);
     el.brandHome?.addEventListener("click", markReturn);
     async function openConsole(viewer) {
       state.viewer = viewer;
@@ -2851,13 +2884,19 @@
       document.body.style.left = "";
       document.body.style.right = "";
       document.body.style.width = "";
-      window.scrollTo(0, scrollLock);
+      if (scrollLock) window.scrollTo(0, scrollLock);
+      scrollLock = 0;
     }
 
+    /**
+     * Opens the menu. On a phone it is a full-height drawer with a veil and the
+     * page held behind it; on desktop it is a popover anchored under the bar, and
+     * locking the document there would be obnoxious.
+     */
     function openDrawer() {
-      holdScroll();
+      if (isHandset()) holdScroll();
       el.drawerPanel.setAttribute("aria-hidden", "false");
-      el.navToggle.setAttribute("aria-expanded", "true");
+      toggleButtons().forEach((button) => button.setAttribute("aria-expanded", "true"));
       // MUST NOT scroll. The close button sits at the top of a panel that is
       // still translated off-screen, so a plain focus() makes the browser scroll
       // the document to reveal it, which slides the whole drawer out from under
@@ -2869,8 +2908,13 @@
       if (!document.body.classList.contains("drawer-open")) return;
       releaseScroll();
       el.drawerPanel.setAttribute("aria-hidden", "true");
-      el.navToggle.setAttribute("aria-expanded", "false");
+      toggleButtons().forEach((button) => button.setAttribute("aria-expanded", "false"));
       if (restoreFocus) el.navToggle.focus({ preventScroll: true });
+    }
+
+    /** Both hamburgers open the same menu; both report its state. */
+    function toggleButtons() {
+      return [el.navToggle, el.menuToggle].filter(Boolean);
     }
 
     function syncDrawer() {
@@ -2882,9 +2926,11 @@
       });
     }
 
-    el.navToggle.addEventListener("click", () => {
-      if (document.body.classList.contains("drawer-open")) closeDrawer({ restoreFocus: true });
-      else openDrawer();
+    toggleButtons().forEach((button) => {
+      button.addEventListener("click", () => {
+        if (document.body.classList.contains("drawer-open")) closeDrawer({ restoreFocus: true });
+        else openDrawer();
+      });
     });
     el.drawerClose.addEventListener("click", () => closeDrawer({ restoreFocus: true }));
     el.drawerVeil.addEventListener("click", () => closeDrawer({ restoreFocus: true }));
@@ -2910,10 +2956,18 @@
       }
     });
 
-    // Rotating into a tablet drops the drawer entirely.
-    window.matchMedia("(min-width: 900px)").addEventListener("change", (event) => {
-      if (event.matches) closeDrawer();
+    // Clicking anywhere off the desktop popover dismisses it. The switcher does
+    // not exist at phone width, so this cannot fight the veil there.
+    document.addEventListener("click", (event) => {
+      if (!document.body.classList.contains("drawer-open")) return;
+      if (!window.matchMedia("(min-width: 900px)").matches) return;
+      if (el.drawerPanel.contains(event.target) || el.navToggle.contains(event.target)) return;
+      closeDrawer();
     });
+
+    // Crossing the breakpoint changes what the menu means, so close it rather
+    // than leave a drawer open as a popover.
+    window.matchMedia("(min-width: 900px)").addEventListener("change", () => closeDrawer());
 
     el.refresh.addEventListener("click", () => {
       const name = state.activeTab;
@@ -4145,10 +4199,7 @@
     (async function boot() {
       const startingTheme = document.documentElement.getAttribute("data-theme") || "dark";
       applyTheme(startingTheme);
-      el.themeToggle.setAttribute(
-        "aria-label",
-        startingTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"
-      );
+      syncThemeToggles(startingTheme);
 
       let session = null;
       try {
