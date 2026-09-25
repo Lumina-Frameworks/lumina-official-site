@@ -3008,6 +3008,13 @@
       };
       bindCursorHover();
 
+      // Admin handoff: drop the marker the console reads for its uplink wipe.
+      document.querySelectorAll(".admin-link").forEach((link) => {
+        link.addEventListener("click", () => {
+          try { sessionStorage.setItem("lumina-enter", "admin"); } catch (_) {}
+        });
+      });
+
       /* ---------- Portfolio card swap ---------- */
       (async function initPortfolioSwap() {
         const stage = document.getElementById("portfolio-stage");

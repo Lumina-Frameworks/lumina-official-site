@@ -14,6 +14,11 @@
       try {
         const saved = localStorage.getItem("lumina-theme");
         if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+        // Same handshake the archive uses: the previous page drops a marker,
+        // we pick it up here and play the uplink wipe.
+        if (sessionStorage.getItem("lumina-enter") === "admin") {
+          document.documentElement.classList.add("from-core");
+        }
       } catch (_) {}
     })();
   </script>
@@ -196,16 +201,120 @@
 
     .hidden { display: none !important; }
     .empty-state { padding: 60px 22px; text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; }
+
+    /* ---------- uplink wipe, mirrors the archive re-entry ---------- */
+    html.from-core body { overflow: hidden; }
+    #console-enter {
+      position: fixed; inset: 0; z-index: 20000;
+      display: none; pointer-events: none; overflow: hidden;
+    }
+    html.from-core #console-enter { display: block; pointer-events: auto; }
+    .console-enter-stripes {
+      position: absolute; inset: 0;
+      display: grid; grid-template-columns: repeat(8, 1fr);
+    }
+    .console-enter-stripes span {
+      background: var(--bg);
+      background-image:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
+        linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-2) 25%, transparent));
+      transform: translateY(0);
+      border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .console-enter-stripes span:nth-child(odd) {
+      background:
+        linear-gradient(0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 50%),
+        var(--bg-elev);
+    }
+    html.from-core.enter-play .console-enter-stripes span {
+      animation: consoleEnterLift 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(1) { animation-delay: 0.02s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(2) { animation-delay: 0.07s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(3) { animation-delay: 0.12s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(4) { animation-delay: 0.17s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(5) { animation-delay: 0.22s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(6) { animation-delay: 0.27s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(7) { animation-delay: 0.32s; }
+    html.from-core.enter-play .console-enter-stripes span:nth-child(8) { animation-delay: 0.37s; }
+    @keyframes consoleEnterLift {
+      0% { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+      70% { opacity: 1; }
+      100% { transform: translateY(-108%) scaleY(1.05); opacity: 0; filter: blur(2px); }
+    }
+    .console-enter-scan {
+      position: absolute; left: -10%; right: -10%; height: 18%; top: 42%;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+    html.from-core.enter-play .console-enter-scan {
+      animation: consoleEnterScan 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+    @keyframes consoleEnterScan {
+      0% { transform: translateY(-180%); opacity: 0; }
+      25% { opacity: 0.9; }
+      100% { transform: translateY(220%); opacity: 0; }
+    }
+    .console-enter-core {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      z-index: 2;
+      transition: opacity 0.35s ease;
+    }
+    html.from-core.enter-done .console-enter-core { opacity: 0; }
+    .console-enter-status {
+      font-family: var(--font-mono);
+      font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+      letter-spacing: 0.14em;
+      color: var(--accent-3);
+      text-align: center;
+      padding: 0.85rem 1.1rem;
+      border: 1px solid var(--line-strong);
+      background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+      backdrop-filter: blur(10px);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .console-enter-status em {
+      display: block;
+      margin-top: 0.35rem;
+      font-style: normal;
+      color: var(--ink-soft);
+      letter-spacing: 0.08em;
+      font-size: 0.78em;
+    }
+    html.from-core.enter-done #console-enter {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease, visibility 0.4s;
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html.from-core .console-enter-stripes span,
+      html.from-core .console-enter-scan { animation: none !important; }
+    }
   </style>
 </head>
 <body>
+  <div id="console-enter" aria-hidden="true">
+    <div class="console-enter-stripes" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="console-enter-scan" aria-hidden="true"></div>
+    <div class="console-enter-core">
+      <div class="console-enter-status mono" id="console-enter-status"></div>
+    </div>
+  </div>
+
   <header class="bar">
     <img src="./assets/lumina-logo-dark.png" alt="" />
     <span class="bar-title">// ADMIN_CONSOLE</span>
     <span class="bar-spacer"></span>
     <span class="bar-user" id="bar-user"></span>
     <button class="ghost tiny" id="theme-toggle" type="button">Theme</button>
-    <a class="btn tiny" href="./index.html">View site</a>
+    <a class="btn tiny" href="./index.html" id="view-site">View site</a>
     <button class="ghost tiny hidden" id="logout" type="button">Sign out</button>
   </header>
 
@@ -468,6 +577,11 @@
         location.reload();
       });
 
+      // Return trip: hand the home page its own re-entry wipe on the way out.
+      $("view-site")?.addEventListener("click", () => {
+        try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
+      });
+
       function showConsole(email) {
         els.gate.classList.add("hidden");
         els.console.classList.remove("hidden");
@@ -727,6 +841,38 @@
       }
 
       /* ---------- boot ---------- */
+      // Uplink wipe, played once if we arrived from the site header.
+      if (document.documentElement.classList.contains("from-core")) {
+        try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
+        const docEl = document.documentElement;
+        const status = $("console-enter-status");
+        const lines = [
+          ["// ADMIN_UPLINK", "opening secure channel"],
+          ["// AUTH_HANDSHAKE", "verifying operator identity"],
+          ["// CONSOLE_READY", "sign in to continue"]
+        ];
+        let index = 0;
+        const paint = () => {
+          const [title, sub] = lines[index];
+          if (status) status.innerHTML = `${title}<em>${sub}</em>`;
+        };
+        paint();
+        requestAnimationFrame(() => docEl.classList.add("enter-play"));
+        const ticker = setInterval(() => {
+          index = Math.min(index + 1, lines.length - 1);
+          paint();
+          if (index === lines.length - 1) clearInterval(ticker);
+        }, 280);
+        window.setTimeout(() => {
+          docEl.classList.add("enter-done");
+          document.body.style.overflow = "";
+          window.setTimeout(() => {
+            docEl.classList.remove("from-core", "enter-play", "enter-done");
+            $("console-enter")?.remove();
+          }, 450);
+        }, 1100);
+      }
+
       (async function boot() {
         try {
           const session = await api("/api/auth/me");

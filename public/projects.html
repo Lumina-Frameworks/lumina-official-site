@@ -1232,6 +1232,13 @@
     const html = document.documentElement;
     const { escapeHtml, safeUrl, safeImage, loadProjects } = window.LuminaProjects;
 
+    // Admin handoff: drop the marker the console reads for its uplink wipe.
+    document.querySelectorAll(".admin-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        try { sessionStorage.setItem("lumina-enter", "admin"); } catch (_) {}
+      });
+    });
+
     /* Custom cursor */
     const cursor = document.querySelector(".cursor");
     const ring = document.querySelector(".cursor-ring");
