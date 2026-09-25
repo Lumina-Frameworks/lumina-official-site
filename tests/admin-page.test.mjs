@@ -197,6 +197,40 @@ describe("admin.html wiring", () => {
     assert.equal((html.match(/<h1/g) || []).length, 2);
   });
 
+  test("selecting a project repaints the highlight instead of the list", () => {
+    // Re-rendering on selection replaced the list's innerHTML, which restarted
+    // every row's entry animation: a phantom refresh on every click.
+    const select = html.match(/function selectProject\(slug\) \{[\s\S]*?\n    \}/);
+    assert.ok(select, "no selectProject");
+    assert.ok(!select[0].includes("renderList()"), "selection must not rebuild the list");
+    assert.match(select[0], /paintActiveRow\(slug\)/);
+    assert.match(select[0], /ensureEditorVisible\(\)/);
+
+    // The entry animation must not live on .row, or toggling a class replays it.
+    const row = html.match(/\n    \.row \{[\s\S]*?\n    \}/);
+    assert.ok(row, "no .row rule");
+    assert.match(row[0], /animation: none;/);
+    assert.match(html, /\.row-sym, \.row-main, \.row-pills \{ animation: rowIn/);
+
+    // renderList is only for new data or a changed filter, never a selection:
+    // fresh fetch, search input, filter chip, and starting a new project.
+    const calls = [...html.matchAll(/renderList\(\);/g)].length;
+    const definitions = (html.match(/function renderList\(\)/g) || []).length;
+    assert.equal(definitions, 1);
+    assert.equal(calls, 4, "an unexpected renderList call site appeared");
+  });
+
+  test("the project row stacks on a narrow rail", () => {
+    // At 390px the pills sat on top of the year text and the title clipped to
+    // "A.K.A.R.I.PRODUCT · 20LIVE".
+    const narrow = html.slice(html.indexOf("@media (max-width: 1039px) {\n      .row {"));
+    assert.ok(narrow.length > 0, "no narrow-rail rule for .row");
+    const block = narrow.slice(0, narrow.indexOf("\n    }"));
+    assert.match(block, /grid-template-columns: 36px minmax\(0, 1fr\)/);
+    assert.match(block, /\.row-sym \{ grid-row: 1 \/ span 2; \}/);
+    assert.match(block, /\.row-pills \{ grid-column: 2; \}/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
