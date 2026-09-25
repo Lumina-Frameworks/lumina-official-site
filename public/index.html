@@ -599,6 +599,17 @@
     .theme-toggle svg, .menu-toggle svg { width: 18px; height: 18px; }
     [data-theme="dark"] .icon-sun { display: none; }
     [data-theme="light"] .icon-moon { display: none; }
+    /* Admin console shortcut. Deliberately quiet: it sits beside the theme
+       toggle at the same size, and only picks up the accent on hover. */
+    .admin-link {
+      width: 42px; height: 42px; display: grid; place-items: center;
+      background: var(--bg-soft); border: 1px solid var(--line-color);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      color: var(--ink-soft); cursor: none;
+      transition: border-color 0.25s, color 0.25s, transform 0.25s;
+    }
+    .admin-link:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .admin-link svg { width: 18px; height: 18px; }
     .menu-toggle {
       display: none;
       place-items: center;
@@ -2213,6 +2224,12 @@
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
+        <a href="./admin.html" class="admin-link" aria-label="Admin console" title="Admin console" data-cursor>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6.5 7.5 11 12l-4.5 4.5" />
+            <path d="M13.5 16.5h4.5" />
+          </svg>
+        </a>
         <a href="#contact" class="btn btn-primary btn-nav-cta" data-cursor>Get Started</a>
         <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav" data-cursor>
           <span class="burger" aria-hidden="true"><span></span><span></span><span></span></span>
