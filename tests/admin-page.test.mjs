@@ -314,6 +314,61 @@ describe("admin.html wiring", () => {
     assert.match(html, /--bg: #dfe6ef;/);
   });
 
+  test("phone navigation is a drawer, not a scrolling tab strip", () => {
+    assert.ok(html.includes('id="nav-toggle"'), "no hamburger");
+    assert.ok(html.includes('id="drawer-panel"'), "no drawer panel");
+    assert.match(html, /aria-controls="drawer-panel"/);
+    // One drawer link per destination, matching the tabs.
+    const targets = [...html.matchAll(/data-goto="([a-z]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(targets, ["overview", "projects", "admins", "audit"]);
+    // The strip is hidden rather than removed, so panel labelling survives.
+    assert.match(html, /\.tabs \{ display: none; \}/);
+    assert.ok(!/\.tabs \{ display: flex; gap: 4px; overflow-x: auto/.test(html.split("@media (max-width: 899px)")[1].split("@media (min-width: 900px)")[0]));
+    assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: none; \}/);
+    // Escape and the veil both close it.
+    assert.match(html, /el\.drawerVeil\.addEventListener\("click", \(\) => closeDrawer/);
+    assert.match(html, /event\.key === "Escape" && document\.body\.classList\.contains\("drawer-open"\)/);
+    // Drawer badges track the tab badges.
+    assert.match(html, /setBadge\("badge-" \+ name, value\);/);
+    assert.match(html, /setBadge\("drawer-badge-" \+ name, value\);/);
+  });
+
+  test("the audit log becomes a card list on a phone", () => {
+    // The table needs 640px before it is readable; on a phone that is a
+    // sideways scroll inside a page that must not scroll sideways.
+    assert.ok(html.includes('id="audit-cards"'), "no mobile card container");
+    assert.match(html, /@media \(max-width: 760px\) \{\s*\n\s*\.table-scroll \{ display: none; \}/);
+    assert.match(html, /\.audit-cards \{ display: none; \}/);
+    assert.match(html, /\.audit-cards \{ display: grid; \}/);
+    assert.match(html, /el\.auditCards\.innerHTML = events\.map/);
+    assert.match(html, /el\.auditCards\.addEventListener\("click", \(event\) => openEventFrom\(event\.target\)\)/);
+  });
+
+  test("audit filters collapse behind a toggle on a phone", () => {
+    assert.ok(html.includes('id="filters-toggle"'), "no filter toggle");
+    assert.ok(html.includes('id="audit-filters"'), "no filter group");
+    assert.match(html, /aria-controls="audit-filters"/);
+    assert.match(html, /el\.filters\.hidden = window\.matchMedia\("\(max-width: 700px\)"\)\.matches;/);
+    assert.match(html, /\.filters-toggle \{ display: none; \}/);
+    assert.match(html, /\.filters-toggle \{\s*\n\s*display: inline-flex;/);
+    // The filter group must not be clobbered by the .search box rule again.
+    assert.match(html, /\.filters \{ display: contents; \}/);
+  });
+
+  test("a phone never paints the fixed backdrop layers", () => {
+    assert.match(
+      html,
+      /@media \(max-width: 899px\), \(hover: none\) and \(pointer: coarse\) \{\s*\n\s*\.backdrop-orb, \.backdrop-grid, \.scanlines, \.frame-marks \{ display: none; \}/
+    );
+    // Static bar, no per-frame blur over a scrolling document.
+    assert.match(html, /\.bar \{ backdrop-filter: none; background: var\(--bg\); \}/);
+    // And the mesh animation loop stops entirely on touch.
+    assert.match(html, /window\.matchMedia\("\(max-width: 899px\), \(hover: none\) and \(pointer: coarse\)"\)\.matches/);
+    // Nothing may scroll sideways.
+    assert.match(html, /html \{ overflow-x: clip; \}/);
+    assert.match(html, /body \{[\s\S]*?overflow-x: clip;/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

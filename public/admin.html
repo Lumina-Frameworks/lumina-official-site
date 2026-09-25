@@ -66,15 +66,21 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body { height: 100%; }
+    /* A single stray wide child otherwise gives the whole console a horizontal
+       scrollbar on a phone, which is the worst mobile bug there is. */
+    html { overflow-x: clip; }
     body {
       font-family: var(--font-body);
       background: var(--bg);
       color: var(--ink);
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+      overflow-x: clip;
       position: relative;
     }
+    /* Grid and flex children default to min-width:auto, which lets a long string
+       push a column wider than its track. */
+    .row > *, .console-grid > *, .gate-stage > *, .toolbar > *, .card-head > * { min-width: 0; }
     a { color: var(--accent); text-decoration: none; }
     button, input, select, textarea { font: inherit; color: inherit; }
     .mono { font-family: var(--font-mono); }
@@ -115,8 +121,7 @@
       background-size: 720px 720px; background-repeat: repeat;
       opacity: 0.5; mix-blend-mode: soft-light;
       animation: textureDrift 72s linear infinite;
-    }
-    [data-theme="light"] .backdrop-texture {
+    }    [data-theme="light"] .backdrop-texture {
       background-image: url("./assets/scroll-backdrop-light.png");
       background-size: 820px 820px;
       opacity: 0.34; mix-blend-mode: multiply;
@@ -180,13 +185,36 @@
     @keyframes orbA { 50% { transform: translate3d(6vmax, 4vmax, 0) scale(1.12); } }
     @keyframes orbB { 50% { transform: translate3d(-5vmax, -3vmax, 0) scale(1.08); } }
     @keyframes orbC { 50% { transform: translate3d(-4vmax, 3vmax, 0) scale(1.18); } }
-    /* Smaller, softer orbs on phones: 90px blurs over a 44vmax box are the one
-       thing here that can cost real GPU time on a mid-range device. */
-    @media (max-width: 900px) {
-      .backdrop-orb { opacity: 0.3; filter: blur(54px); }
-      .backdrop-orb.a { width: 34vmax; height: 34vmax; }
-      .backdrop-orb.b { width: 32vmax; height: 32vmax; }
-      .backdrop-orb.c { display: none; }
+
+    /* =====================================================================
+       Phones and touch devices
+       Two problems to solve at once.
+
+       Performance: every backdrop layer is `position: fixed`, and a fixed layer
+       behind a scrolling document is the classic way to make a phone drop
+       frames, because the compositor repaints it on every scroll. The 90px
+       blurs and the full-viewport backdrop-filter cost real GPU time too. On a
+       phone the field becomes two static gradients on the canvas itself, and
+       the animation loop stops entirely.
+
+       Density: the console was built desktop-first, so a phone got a squeezed
+       copy of it. The tab strip becomes a drawer, filters collapse, and the
+       audit table becomes a card list.
+       ===================================================================== */
+    @media (max-width: 899px), (hover: none) and (pointer: coarse) {
+      .backdrop-orb, .backdrop-grid, .scanlines, .frame-marks { display: none; }
+      .backdrop-texture { animation: none; opacity: 0.3; }
+      [data-theme="light"] .backdrop-texture { animation: none; opacity: 0.22; }
+      .backdrop-glow {
+        background:
+          radial-gradient(120vw 60vw at 50% -6%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+          radial-gradient(90vw 60vw at 100% 104%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 72%);
+      }
+      .backdrop-vignette { display: none; }
+      /* A blur over a static bar is cheap; over a scrolling document with a
+         sticky header it is not. */
+      .bar { backdrop-filter: none; background: var(--bg); }
+      .console-enter-stripes span, .signout-stripes span { animation-duration: 0.55s; }
     }
 
     /* Corner falloff, so the glow never fights the content for attention.
@@ -419,6 +447,97 @@
     }
 
     /* =====================================================================
+       Navigation drawer
+       A horizontally scrolling strip of four tabs was the wrong answer for a
+       phone: it hid two of the destinations off-screen and left a floating
+       refresh button in the middle of nowhere. Below 900px the destination
+       list moves into a left drawer behind a hamburger.
+       ===================================================================== */
+    .nav-toggle { display: none; }
+    .drawer { display: contents; }
+
+    @media (max-width: 899px) {
+      .nav-toggle {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; min-width: 38px; height: 38px; min-height: 38px; padding: 0;
+      }
+      /* The tab strip stays in the DOM so the panels keep their labels, but the
+         drawer is what a finger actually uses. */
+      .tabs { display: none; }
+      .panel-bar { padding: 10px var(--pad) 0; }
+      .panel-bar .spacer, .panel-bar #refresh { display: none; }
+      .tab-ink { display: none; }
+
+      .drawer { display: block; }
+      .drawer-veil {
+        position: fixed; inset: 0; z-index: 68;
+        background: rgba(2, 4, 8, 0.6);
+        opacity: 0; visibility: hidden;
+        transition: opacity 0.28s var(--ease-out), visibility 0.28s;
+      }
+      body.drawer-open .drawer-veil { opacity: 1; visibility: visible; }
+      .drawer-panel {
+        position: fixed; top: 0; bottom: 0; left: 0; z-index: 69;
+        width: min(84vw, 320px);
+        display: flex; flex-direction: column;
+        background: var(--bg-panel);
+        border-right: 1px solid var(--line-strong);
+        transform: translateX(-102%);
+        transition: transform 0.34s var(--ease-out);
+        box-shadow: 24px 0 60px -30px rgba(0, 0, 0, 0.7);
+      }
+      body.drawer-open .drawer-panel { transform: none; }
+      body.drawer-open { overflow: hidden; }
+
+      .drawer-head {
+        display: flex; align-items: center; gap: 11px;
+        padding: 14px 16px; border-bottom: 1px solid var(--line-color);
+      }
+      .drawer-head .brand-mark { width: 30px; height: 30px; }
+      .drawer-head .brand-mark img { width: 19px; height: 19px; }
+      .drawer-head h2 {
+        font-family: var(--font-display); font-size: 0.95rem; font-weight: 700;
+        flex: 1;
+      }
+      .drawer-nav { display: grid; gap: 4px; padding: 12px; }
+      .drawer-link {
+        display: flex; align-items: center; gap: 12px; width: 100%;
+        padding: 13px 14px; cursor: pointer; text-align: left;
+        font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--ink-soft);
+        background: transparent; border: 1px solid transparent;
+        clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+        transition: color 0.18s, background 0.18s, border-color 0.18s;
+      }
+      .drawer-link::after { display: none; }
+      .drawer-link:hover { color: var(--ink); background: var(--bg-soft); transform: none; }
+      .drawer-link .icon { color: var(--ink-faint); }
+      .drawer-link[aria-current="page"] {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .drawer-link[aria-current="page"] .icon { color: var(--accent); }
+      .drawer-link .tab-badge {
+        margin-left: auto; font-family: var(--font-mono); font-size: 9.5px;
+        padding: 1px 7px; border: 1px solid var(--line-color); color: var(--ink-faint);
+      }
+      .drawer-link[aria-current="page"] .tab-badge { border-color: var(--accent); color: var(--accent); }
+      .drawer-foot {
+        margin-top: auto; display: grid; gap: 8px;
+        padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line-color);
+      }
+      .drawer-foot .who {
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .drawer-foot .row { display: flex; gap: 8px; }
+      .drawer-foot .row > * { flex: 1 1 0; }
+    }
+    @media (min-width: 900px) { .drawer-veil { display: none; } }
+
+    /* =====================================================================
        Login gate
        ===================================================================== */
     .gate-shell {
@@ -449,20 +568,6 @@
       background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     .gate-intro p { color: var(--ink-soft); font-size: clamp(0.94rem, 1.6vw, 1.03rem); max-width: 46ch; }
-    /* Below the split point the intro stacks above the card, so it has to stay
-       short: a phone should reach the sign-in button in one screen. */
-    @media (max-width: 999px) {
-      .gate-shell { align-items: start; padding-top: clamp(20px, 5vh, 44px); }
-      .gate-intro h1 { margin-bottom: 12px; }
-      .gate-intro p { max-width: 52ch; }
-      .gate-points { margin-top: 18px; gap: 10px; }
-      .gate-point span { font-size: 12px; }
-    }
-    @media (max-width: 560px) {
-      .gate-points { display: none; }
-      .gate-card-inner { padding: 22px 18px; }
-      .gate-foot { gap: 6px 12px; }
-    }
     .gate-points { display: grid; gap: 12px; margin-top: 26px; }
     .gate-point { display: flex; gap: 12px; align-items: flex-start; }
     .gate-point .icon {
@@ -472,6 +577,27 @@
     }
     .gate-point strong { display: block; font-size: 13.5px; font-weight: 500; }
     .gate-point span { font-size: 12.5px; color: var(--ink-faint); }
+
+    /* Below the split point the intro stacks above the card, so it has to stay
+       short: a phone should reach the sign-in button without a wall of copy.
+       These overrides sit AFTER the base rules on purpose: a media query does
+       not outrank source order, and the first version of this silently did
+       nothing because the base `.gate-points` rule was declared below it. */
+    @media (max-width: 999px) {
+      .gate-shell { align-items: start; padding-top: clamp(16px, 4vh, 40px); }
+      .gate-intro h1 { margin-bottom: 10px; }
+      .gate-intro p { max-width: 52ch; }
+      .gate-points { margin-top: 16px; gap: 10px; }
+    }
+    @media (max-width: 700px) {
+      .gate-points { display: none; }
+      .gate-intro p { font-size: 0.95rem; }
+      .eyebrow { font-size: 9.5px; letter-spacing: 0.14em; margin-bottom: 14px; }
+    }
+    @media (max-width: 560px) {
+      .gate-card-inner { padding: 20px 16px; }
+      .gate-foot { gap: 6px 12px; }
+    }
 
     .gate-card {
       position: relative; padding: 1px;
@@ -697,6 +823,8 @@
       display: grid; gap: 9px; padding: 14px 16px;
       border-bottom: 1px solid var(--line-color);
     }
+    /* `search` styles a field shell. The structural rule stays here; the
+       toolbar variant below must not be clobbered by it. */
     .search {
       display: flex; align-items: center; gap: 9px;
       padding: 9px 12px; background: var(--bg-soft);
@@ -745,6 +873,12 @@
     .row::after { display: none; }
     .row-sym, .row-main, .row-badge { animation: rowIn 0.42s var(--ease-out) both; }
     @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+    /* A staggered entry on every row is a nice touch on a desktop and a stutter
+       on a phone, where the list is the first thing painted. */
+    @media (max-width: 899px) {
+      .row-sym, .row-main, .row-badge { animation: none; }
+      .tile, .feed-row, .audit-card, tbody tr { animation: none; }
+    }
     .row:hover { background: var(--bg-soft); transform: none; }
     .row.is-active { background: var(--bg-soft); }
     /* Keyed on a class that is re-added on selection, so the accent bar slides
@@ -897,17 +1031,69 @@
     .row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
     .clickable { cursor: pointer; }
 
+    /* ---------------------------------------------------------------------
+       Audit log, phone layout
+       The table needs 640px before it is readable, which on a phone means a
+       sideways scroll inside a page that must not scroll sideways. Below 760px
+       the same rows render as cards instead, built alongside the table rather
+       than replacing it.
+       --------------------------------------------------------------------- */
+    .audit-cards { display: none; }
+    @media (max-width: 760px) {
+      .table-scroll { display: none; }
+      .audit-cards { display: grid; }
+      .audit-card {
+        display: grid; gap: 6px; width: 100%; text-align: left; cursor: pointer;
+        padding: 12px 14px; background: transparent; border: 0;
+        border-bottom: 1px solid var(--line-color);
+        border-left: 2px solid transparent;
+        clip-path: none; min-height: 0; animation: none;
+        transition: background 0.16s, border-color 0.16s;
+      }
+      .audit-card::after { display: none; }
+      .audit-card:hover, .audit-card:active { background: var(--bg-soft); transform: none; }
+      .audit-card.denied { border-left-color: var(--warn); }
+      .audit-card.failed { border-left-color: var(--danger); }
+      .audit-card.denied .a-sum, .audit-card.failed .a-sum { color: var(--ink); }
+      .a-top { display: flex; align-items: center; gap: 8px; }
+      .a-action {
+        font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--accent-3);
+      }
+      .a-when { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+      .a-sum { font-size: 13px; line-height: 1.45; }
+      .a-meta {
+        display: flex; flex-wrap: wrap; gap: 2px 10px;
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+      }
+      .a-meta .dot { margin-top: 5px; }
+      .audit-card .chev { color: var(--ink-faint); flex: none; }
+    }
+
     .toolbar {
       display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
       padding: 14px 18px; border-bottom: 1px solid var(--line-color);
     }
-    .toolbar .grow { flex: 1 1 190px; min-width: 150px; }
     .toolbar .spacer { flex: 1 1 auto; }
+    .filters { display: contents; }
+    /* Collapse toggle exists for the phone layout only. */
+    .filters-toggle { display: none; }
     @media (max-width: 700px) {
-      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar { flex-direction: column; align-items: stretch; padding: 12px 14px; gap: 8px; }
       .toolbar .spacer { display: none; }
       .toolbar > * { width: 100%; }
-      .toolbar .date-pair { display: flex; gap: 10px; }
+      .filters { display: grid; gap: 8px; }
+      .filters[hidden] { display: none; }
+      .filters .icon-filter { display: none; }
+      .filters .date-pair { display: flex; gap: 8px; }
+      .filters .filters-actions { display: flex; gap: 8px; }
+      .filters .filters-actions > * { flex: 1 1 0; }
+      .filters-toggle {
+        display: inline-flex; width: 100%; justify-content: center;
+      }
+      .filters-toggle[aria-expanded="true"] {
+        color: var(--accent); border-color: var(--accent);
+      }
     }
     .date-pair { display: flex; gap: 10px; }
     .date-pair label { flex: 1; }
@@ -1265,6 +1451,7 @@
     <g id="i-star"><path d="M12 3.4l2.6 5.3 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.9z"/></g>
     <g id="i-sun"><path d="M12 16.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2Z"/><path d="M12 2.6v2M12 19.4v2M4.2 12h-2M21.8 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4"/></g>
     <g id="i-moon"><path d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.8 8.8 0 1 0 10.6 10.6Z"/></g>
+    <g id="i-menu"><path d="M4 7h16M4 12h16M4 17h16"/></g>
     <g id="i-external"><path d="M14.2 4.6h5.2v5.2"/><path d="M19.4 4.6 11.6 12.4"/><path d="M18 13.6v5.8H4.6V6h5.8"/></g>
     <g id="i-info"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 11v5.4M12 7.8h.01"/></g>
     <g id="i-save"><path d="M5 4.6h11l3.4 3.4v11.4H5z"/><path d="M8.4 4.6v5.2h6.2V4.6"/><path d="M8.4 19.4v-5.2h7.2v5.2"/></g>
@@ -1322,6 +1509,10 @@
 
 <!-- ======================= bar ======================= -->
 <header class="bar">
+  <button class="ghost tiny icon-only nav-toggle" id="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="drawer-panel">
+    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-menu"/></svg>
+  </button>
+
   <div class="brand">
     <a class="brand-link" href="./index.html" id="brand-home" title="Back to lumina-frameworks.com">
       <span class="brand-mark">
@@ -1355,6 +1546,58 @@
     <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
   </a>
 </header>
+
+<!-- ======================= drawer (phone navigation) ======================= -->
+<div class="drawer">
+  <div class="drawer-veil" id="drawer-veil"></div>
+  <aside class="drawer-panel" id="drawer-panel" aria-label="Console sections" aria-hidden="true">
+    <div class="drawer-head">
+      <span class="brand-mark">
+        <img id="drawer-logo" src="./assets/lumina-logo-dark.png" alt="" />
+      </span>
+      <h2>Console</h2>
+      <button class="ghost tiny icon-only" id="drawer-close" type="button" aria-label="Close navigation">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
+
+    <nav class="drawer-nav">
+      <button class="drawer-link" data-goto="overview" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-gauge"/></svg>
+        Overview
+      </button>
+      <button class="drawer-link" data-goto="projects" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-grid"/></svg>
+        Projects
+        <span class="tab-badge" id="drawer-badge-projects" hidden>0</span>
+      </button>
+      <button class="drawer-link" data-goto="admins" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-users"/></svg>
+        Admin manager
+        <span class="tab-badge" id="drawer-badge-admins" hidden>0</span>
+      </button>
+      <button class="drawer-link" data-goto="audit" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scroll"/></svg>
+        Audit log
+        <span class="tab-badge" id="drawer-badge-audit" hidden>0</span>
+      </button>
+    </nav>
+
+    <div class="drawer-foot">
+      <span class="who" id="drawer-who"></span>
+      <div class="row">
+        <button class="ghost tiny" id="drawer-refresh" type="button">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-refresh"/></svg>
+          <span class="btn-label">Refresh</span>
+        </button>
+        <a class="btn tiny" href="./index.html" id="drawer-site">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
+          <span class="btn-label">Site</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+</div>
 
 <!-- ======================= login gate ======================= -->
 <section class="gate-shell" id="gate">
@@ -1668,39 +1911,47 @@
 
         <div class="toolbar">
           <label class="search grow">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-search"/></svg>
             <input type="search" id="audit-search" placeholder="Search summary, actor, record…" autocomplete="off" />
           </label>
-          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-faint)" aria-hidden="true"><use href="#i-filter"/></svg>
-          <select id="audit-action" aria-label="Filter by category">
-            <option value="">All activity</option>
-            <option value="project.">Projects</option>
-            <option value="media.">Media</option>
-            <option value="admin.">Roster</option>
-            <option value="session.">Sessions</option>
-            <option value="auth.">Sign-in</option>
-          </select>
-          <select id="audit-actor" aria-label="Filter by operator">
-            <option value="">Everyone</option>
-          </select>
-          <select id="audit-status" aria-label="Filter by outcome">
-            <option value="">Any outcome</option>
-            <option value="ok">Succeeded</option>
-            <option value="denied">Denied</option>
-            <option value="failed">Failed</option>
-          </select>
-          <div class="date-pair">
-            <label><span class="sr-only">From date</span><input type="date" id="audit-since" aria-label="From date" /></label>
-            <label><span class="sr-only">To date</span><input type="date" id="audit-until" aria-label="To date" /></label>
+          <button class="ghost tiny filters-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="audit-filters">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-filter"/></svg>
+            <span class="btn-label">Filters</span>
+          </button>
+          <div class="filters" id="audit-filters">
+            <svg class="icon icon-sm icon-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-faint)" aria-hidden="true"><use href="#i-filter"/></svg>
+            <select id="audit-action" aria-label="Filter by category">
+              <option value="">All activity</option>
+              <option value="project.">Projects</option>
+              <option value="media.">Media</option>
+              <option value="admin.">Roster</option>
+              <option value="session.">Sessions</option>
+              <option value="auth.">Sign-in</option>
+            </select>
+            <select id="audit-actor" aria-label="Filter by operator">
+              <option value="">Everyone</option>
+            </select>
+            <select id="audit-status" aria-label="Filter by outcome">
+              <option value="">Any outcome</option>
+              <option value="ok">Succeeded</option>
+              <option value="denied">Denied</option>
+              <option value="failed">Failed</option>
+            </select>
+            <div class="date-pair">
+              <label><span class="sr-only">From date</span><input type="date" id="audit-since" aria-label="From date" /></label>
+              <label><span class="sr-only">To date</span><input type="date" id="audit-until" aria-label="To date" /></label>
+            </div>
+            <div class="filters-actions">
+              <button class="ghost tiny" id="audit-clear" type="button">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg>
+                <span class="btn-label">Clear</span>
+              </button>
+              <button class="ghost tiny" id="audit-export" type="button">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg>
+                <span class="btn-label">CSV</span>
+              </button>
+            </div>
           </div>
-          <button class="ghost tiny" id="audit-clear" type="button">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>
-            <span class="btn-label">Clear</span>
-          </button>
-          <button class="ghost tiny" id="audit-export" type="button">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-download"/></svg>
-            <span class="btn-label">CSV</span>
-          </button>
         </div>
 
         <div class="table-scroll">
@@ -1719,6 +1970,8 @@
             <tbody id="audit-body"></tbody>
           </table>
         </div>
+
+        <div class="audit-cards" id="audit-cards"></div>
 
         <div class="card-head" style="border-top:1px solid var(--line-color); border-bottom:0;">
           <button class="ghost tiny" id="audit-more" type="button">
@@ -1869,6 +2122,12 @@
       confirmSheet: $("confirm-sheet"), confirmTitle: $("confirm-title"),
       confirmBody: $("confirm-body"), confirmGo: $("confirm-go"), confirmIcon: $("confirm-icon"),
       signout: $("signout"), signoutStatus: $("signout-status"), signoutSub: $("signout-sub"),
+      /* navigation */
+      navToggle: $("nav-toggle"), drawerPanel: $("drawer-panel"), drawerVeil: $("drawer-veil"),
+      drawerClose: $("drawer-close"), drawerRefresh: $("drawer-refresh"), drawerWho: $("drawer-who"),
+      drawerLogo: $("drawer-logo"), drawerSite: $("drawer-site"),
+      /* audit */
+      auditCards: $("audit-cards"), filtersToggle: $("filters-toggle"), filters: $("audit-filters"),
       /* gate */
       gsi: $("gsi-button"), note: $("gate-note"), termLine: $("gate-term-line"), clock: $("gate-clock")
     };
@@ -1972,6 +2231,7 @@
       const mark = dark ? "./assets/lumina-logo-dark.png" : "./assets/lumina-logo-light.png";
 
       if (el.brandLogo) el.brandLogo.src = mark;
+      if (el.drawerLogo) el.drawerLogo.src = mark;
       if (el.idleMark) el.idleMark.src = mark;
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute("content", dark ? "#05060a" : "#eef3f8");
@@ -2150,6 +2410,7 @@
       el.logout.classList.remove("hidden");
       el.viewSite.classList.remove("hidden");
       el.user.textContent = viewer.email;
+      el.drawerWho.textContent = viewer.email + " · " + U.roleLabel(viewer.role);
       el.role.textContent = U.roleLabel(viewer.role);
       el.role.className = "role-chip " + viewer.role;
       el.barStatus.textContent = viewer.role.toUpperCase() + " SESSION · LIVE";
@@ -2193,12 +2454,19 @@
       });
       state.activeTab = name;
       syncTabInk();
+      syncDrawer();
       try { history.replaceState(null, "", "#" + name); } catch (_) {}
 
       if (name === "admins" && !state.loaded.admins) loadAdmins();
       if (name === "audit" && !state.loaded.audit) loadAudit({ reset: true });
       if (name === "overview" && !state.loaded.overview) loadOverview();
       if (focus) tab.focus();
+
+      // A tab change moves the reader; on a phone the panels are full height,
+      // so leaving them mid-scroll would show the previous panel's tail.
+      if (window.matchMedia("(max-width: 899px)").matches) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
 
     document.querySelectorAll(".tab").forEach((tab) => {
@@ -2211,6 +2479,63 @@
       });
     });
     window.addEventListener("resize", syncTabInk);
+
+    /* ---------- drawer: the phone's navigation ---------- */
+
+    function openDrawer() {
+      document.body.classList.add("drawer-open");
+      el.drawerPanel.setAttribute("aria-hidden", "false");
+      el.navToggle.setAttribute("aria-expanded", "true");
+      el.drawerClose.focus();
+    }
+
+    function closeDrawer({ restoreFocus = false } = {}) {
+      if (!document.body.classList.contains("drawer-open")) return;
+      document.body.classList.remove("drawer-open");
+      el.drawerPanel.setAttribute("aria-hidden", "true");
+      el.navToggle.setAttribute("aria-expanded", "false");
+      if (restoreFocus) el.navToggle.focus();
+    }
+
+    function syncDrawer() {
+      document.querySelectorAll(".drawer-link").forEach((link) => {
+        if (link.dataset.goto === state.activeTab) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+    }
+
+    el.navToggle.addEventListener("click", () => {
+      if (document.body.classList.contains("drawer-open")) closeDrawer({ restoreFocus: true });
+      else openDrawer();
+    });
+    el.drawerClose.addEventListener("click", () => closeDrawer({ restoreFocus: true }));
+    el.drawerVeil.addEventListener("click", () => closeDrawer({ restoreFocus: true }));
+    el.drawerSite.addEventListener("click", markReturn);
+
+    document.querySelectorAll(".drawer-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        closeDrawer();
+        selectTab(link.dataset.goto);
+      });
+    });
+
+    el.drawerRefresh.addEventListener("click", () => {
+      closeDrawer();
+      el.refresh.click();
+    });
+
+    // Escape closes the drawer first, before a dialog gets a look at the key.
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && document.body.classList.contains("drawer-open")) {
+        event.stopPropagation();
+        closeDrawer({ restoreFocus: true });
+      }
+    });
+
+    // Rotating into a tablet drops the drawer entirely.
+    window.matchMedia("(min-width: 900px)").addEventListener("change", (event) => {
+      if (event.matches) closeDrawer();
+    });
 
     el.refresh.addEventListener("click", () => {
       const name = state.activeTab;
@@ -2231,6 +2556,12 @@
       if (!node) return;
       node.textContent = String(value);
       node.hidden = false;
+    }
+
+    /** Both the tab strip and the drawer carry the same counters. */
+    function setBadges(name, value) {
+      setBadge("badge-" + name, value);
+      setBadge("drawer-badge-" + name, value);
     }
 
     const SKELETON_TILES = Array.from({ length: 4 }, () => '<div class="frame tile skeleton" style="height:132px"></div>').join("");
@@ -2296,9 +2627,9 @@
         renderFeed(data.recent);
         renderSessionList(el.sessions, data.sessions.recent, { compact: true });
         el.sessionCount.textContent = String(data.sessions.live);
-        setBadge("badge-projects", data.projects.total);
-        setBadge("badge-admins", data.roster.total);
-        setBadge("badge-audit", data.audit.total);
+        setBadges("projects", data.projects.total);
+        setBadges("admins", data.roster.total);
+        setBadges("audit", data.audit.total);
         // The actor filter is only useful once we know who has been acting.
         const actors = [...new Set((data.recent || []).map((event) => event.actor))].sort();
         const chosenActor = el.auditActor.value;
@@ -2420,7 +2751,7 @@
     function renderList() {
       const list = visibleProjects();
       el.listCount.textContent = list.length + (list.length !== state.projects.length ? " / " + state.projects.length : "");
-      setBadge("badge-projects", state.projects.length);
+      setBadges("projects", state.projects.length);
 
       if (!list.length) {
         el.list.innerHTML =
@@ -2782,7 +3113,7 @@
         el.inviteOpen.classList.remove("hidden");
         renderAdmins();
         state.loaded.admins = true;
-        setBadge("badge-admins", state.admins.list.length);
+        setBadges("admins", state.admins.list.length);
       } catch (err) {
         el.adminsBody.classList.remove("is-loading");
         el.adminsBody.innerHTML = '<tr><td colspan="6" class="pad-note">' + escapeHtml(err.message) + "</td></tr>";
@@ -2946,6 +3277,7 @@
       if (reset) {
         el.auditBody.classList.add("is-loading");
         el.auditBody.innerHTML = "";
+        el.auditCards.innerHTML = '<div class="pad-note">Loading…</div>';
       }
 
       try {
@@ -2956,10 +3288,11 @@
         state.audit.sessions = data.sessions || [];
         renderAudit();
         state.loaded.audit = true;
-        setBadge("badge-audit", data.total);
+        setBadges("audit", data.total);
       } catch (err) {
         el.auditBody.classList.remove("is-loading");
         el.auditBody.innerHTML = '<tr><td colspan="7" class="pad-note">' + escapeHtml(err.message) + "</td></tr>";
+        el.auditCards.innerHTML = '<div class="pad-note">' + escapeHtml(err.message) + "</div>";
       } finally {
         state.audit.loading = false;
         busy(el.auditMore, false);
@@ -2976,10 +3309,11 @@
       el.auditMore.classList.toggle("hidden", events.length >= total);
 
       if (!events.length) {
-        el.auditBody.innerHTML =
-          '<tr><td colspan="7" class="pad-note">' +
-          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>' +
-          "<div>No events match those filters.</div></td></tr>";
+        const empty =
+          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-search"/></svg>' +
+          "<div>No events match those filters.</div>";
+        el.auditBody.innerHTML = '<tr><td colspan="7" class="pad-note">' + empty + "</td></tr>";
+        el.auditCards.innerHTML = '<div class="pad-note">' + empty + "</div>";
         return;
       }
 
@@ -3000,14 +3334,48 @@
         '<td><div class="row-actions"><button class="ghost tiny" data-open="' + event.id + '" type="button">View</button></div></td>' +
         "</tr>"
       ).join("");
+
+      // The phone equivalent. Same rows, no 640px table to scroll sideways in.
+      el.auditCards.innerHTML = events.map((event) => {
+        const where = [event.city, event.country].filter(Boolean).join(" · ");
+        return (
+          '<button class="audit-card ' + escapeHtml(event.status) + '" data-open="' + event.id + '" type="button">' +
+          '<span class="a-top">' +
+          '<span class="dot ' + escapeHtml(event.status) + '"></span>' +
+          '<span class="a-action">' + escapeHtml(U.actionLabel(event.action)) + "</span>" +
+          '<span class="a-when">' + escapeHtml(U.relativeTime(event.at)) + "</span>" +
+          "</span>" +
+          '<span class="a-sum">' + escapeHtml(event.summary || "—") + "</span>" +
+          '<span class="a-meta">' +
+          "<span>" + escapeHtml(event.actor) + "</span>" +
+          (event.entityId ? "<span>" + escapeHtml(event.entity + " · " + event.entityId) + "</span>" : "") +
+          (event.device ? "<span>" + escapeHtml(event.device) + "</span>" : "") +
+          (where ? "<span>" + escapeHtml(where) + "</span>" : "") +
+          "</span>" +
+          "</button>"
+        );
+      }).join("");
     }
 
-    el.auditBody.addEventListener("click", (event) => {
-      const cell = event.target.closest("[data-open]");
+    function openEventFrom(target) {
+      const cell = target.closest("[data-open]");
       if (!cell) return;
       const found = state.audit.events.find((entry) => String(entry.id) === cell.dataset.open);
       if (found) showEvent(found);
+    }
+
+    el.auditBody.addEventListener("click", (event) => openEventFrom(event.target));
+    el.auditCards.addEventListener("click", (event) => openEventFrom(event.target));
+
+    /* Filters collapse on a phone: five stacked controls filled the screen
+       before a single log entry was visible. */
+    el.filtersToggle.addEventListener("click", () => {
+      const open = el.filtersToggle.getAttribute("aria-expanded") === "true";
+      el.filtersToggle.setAttribute("aria-expanded", String(!open));
+      el.filters.hidden = open;
     });
+    // Expanded by default, then hidden only where the toggle actually exists.
+    el.filters.hidden = window.matchMedia("(max-width: 700px)").matches;
 
     let auditDebounce = null;
     ["input", "change"].forEach((type) => {
@@ -3130,9 +3498,18 @@
     (function neural() {
       const canvas = $("neural-canvas");
       if (!canvas) return;
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
+      /**
+       * The mesh is decoration, and an animated canvas behind a scrolling
+       * document is the main reason a phone drops frames. On a small screen it
+       * paints one frame and stops; the CSS supplies a static field instead.
+       */
+      const reduce =
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        window.matchMedia("(max-width: 899px), (hover: none) and (pointer: coarse)").matches;
+
       let nodes = [];
       let w = 0, h = 0, raf = 0, dpr = 1;
 
