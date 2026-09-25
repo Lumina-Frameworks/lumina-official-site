@@ -1,30 +1,34 @@
 /**
- * /api/admin/projects  (admin only, same-origin)
+ * /api/admin/projects  (admin or owner, same-origin)
  *   GET  -> every project, including unpublished drafts
  *   POST -> create a project
  */
-import { json, readJsonBody, requireAdmin } from "../../../_shared/auth.js";
+import { json, readJsonBody, requireRole } from "../../../_shared/auth.js";
 import {
   getProject,
   listProjects,
   slugify,
   validateProjectInput
 } from "../../../_shared/projects.js";
+import { auditContext, recordAudit } from "../../../_shared/audit.js";
 
 export async function onRequestGet({ request, env }) {
-  const guard = await requireAdmin(request, env);
+  const guard = await requireRole(request, env, "viewer");
   if (!guard.ok) return guard.response;
 
   try {
     const projects = await listProjects(env, { includeUnpublished: true });
-    return json({ projects });
+    return json({
+      projects,
+      viewer: { email: guard.session.email, role: guard.session.role }
+    });
   } catch (err) {
     return json({ error: "Could not load projects.", detail: String(err?.message || err) }, 500);
   }
 }
 
 export async function onRequestPost({ request, env }) {
-  const guard = await requireAdmin(request, env);
+  const guard = await requireRole(request, env, "admin");
   if (!guard.ok) return guard.response;
 
   const parsed = await readJsonBody(request);
@@ -73,5 +77,24 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Could not create project.", detail: String(err?.message || err) }, 500);
   }
 
-  return json({ ok: true, project: await getProject(env, slug) }, 201);
+  const project = await getProject(env, slug);
+  const context = await auditContext(request, env);
+  await recordAudit(env, {
+    actor: guard.session.email,
+    role: guard.session.role,
+    action: "project.create",
+    entity: "project",
+    entityId: slug,
+    summary: `Created "${project.title}" (${project.published ? "published" : "draft"})`,
+    details: {
+      title: project.title,
+      category: project.category,
+      year: project.year,
+      published: project.published,
+      featured: project.featured
+    },
+    context
+  });
+
+  return json({ ok: true, project }, 201);
 }

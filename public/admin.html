@@ -2,9 +2,11 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Admin Console · Lumina Frameworks</title>
   <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#05060a" />
   <link rel="icon" type="image/png" href="./assets/lumina-logo-dark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,202 +25,1030 @@
     })();
   </script>
   <style>
+    /* =====================================================================
+       Tokens
+       ===================================================================== */
     :root {
       --font-display: "Syne", sans-serif;
       --font-hero: "Chakra Petch", sans-serif;
       --font-body: "Outfit", sans-serif;
       --font-mono: "IBM Plex Mono", monospace;
       --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       --chamfer: 14px;
+      --chamfer-sm: 8px;
+      --bar-h: 64px;
+      --pad: clamp(14px, 2.6vw, 30px);
     }
     [data-theme="dark"] {
       --bg: #05060a; --bg-elev: #0b0d14; --bg-panel: #11131c; --bg-soft: #171a25;
+      --bg-glass: rgba(5, 6, 10, 0.72);
       --ink: #f4f7fc; --ink-soft: #9aa3b8; --ink-faint: #6a7388;
       --line-color: rgba(26, 163, 255, 0.16); --line-strong: rgba(13, 111, 212, 0.4);
       --accent: #1aa3ff; --accent-2: #0a4f9c; --accent-3: #7dd9ff;
-      --success: #3dde9a; --danger: #ff6b7a;
+      --success: #3dde9a; --danger: #ff6b7a; --warn: #ffc466;
+      --glow: 0 0 0 1px rgba(26, 163, 255, 0.2), 0 18px 50px -22px rgba(26, 163, 255, 0.55);
       --accent-grad: linear-gradient(120deg, #062a5c 0%, #0d6fd4 42%, #3db7ff 78%, #d9efff 100%);
+      --sheen: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.13) 48%, transparent 76%);
     }
     [data-theme="light"] {
       --bg: #eef3f8; --bg-elev: #e6edf5; --bg-panel: #f7fafc; --bg-soft: #eef4fa;
+      --bg-glass: rgba(238, 243, 248, 0.8);
       --ink: #12151c; --ink-soft: #4f5668; --ink-faint: #7a8496;
       --line-color: rgba(40, 90, 140, 0.16); --line-strong: rgba(13, 111, 212, 0.32);
       --accent: #0d6fd4; --accent-2: #074a96; --accent-3: #2a8fd4;
-      --success: #0f9f65; --danger: #d92c46;
+      --success: #0f9f65; --danger: #d92c46; --warn: #b67400;
+      --glow: 0 0 0 1px rgba(13, 111, 212, 0.16), 0 18px 44px -24px rgba(13, 111, 212, 0.5);
       --accent-grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #dcefff 100%);
+      --sheen: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.65) 48%, transparent 76%);
     }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
     body {
       font-family: var(--font-body);
       background: var(--bg);
       color: var(--ink);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
       line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
     }
     a { color: var(--accent); text-decoration: none; }
+    button, input, select, textarea { font: inherit; color: inherit; }
     .mono { font-family: var(--font-mono); }
+    .hidden { display: none !important; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    ::selection { background: color-mix(in srgb, var(--accent) 34%, transparent); }
 
-    /* chamfered frame, matching the public site */
+    /* Scrollbars, so the console does not look like a browser default */
+    * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--line-strong);
+      border: 3px solid transparent;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+
+    /* =====================================================================
+       Backdrop
+       Layered so the console never reads as an empty page: mesh -> paper
+       texture -> accent glows -> grid -> vignette -> scanlines -> frame marks.
+       Everything is fixed and pointer-events:none, so it costs layout nothing.
+       ===================================================================== */
+    #neural-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; opacity: 1;
+    }
+    .backdrop-texture {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background-image: url("./assets/scroll-backdrop.png");
+      background-size: 720px 720px; background-repeat: repeat;
+      opacity: 0.5; mix-blend-mode: soft-light;
+      animation: textureDrift 72s linear infinite;
+    }
+    [data-theme="light"] .backdrop-texture {
+      background-image: url("./assets/scroll-backdrop-light.png");
+      background-size: 820px 820px;
+      opacity: 0.75; mix-blend-mode: normal;
+    }
+    @keyframes textureDrift {
+      from { background-position: 0 0; }
+      to { background-position: 720px 420px; }
+    }
+    .backdrop-glow {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        radial-gradient(880px 520px at 50% -8%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 68%),
+        radial-gradient(620px 420px at 100% 102%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 70%),
+        radial-gradient(520px 380px at -6% 78%, color-mix(in srgb, var(--accent-3) 12%, transparent), transparent 72%);
+    }
+    [data-theme="light"] .backdrop-glow {
+      background:
+        radial-gradient(880px 520px at 50% -8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+        radial-gradient(620px 420px at 100% 102%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 70%),
+        radial-gradient(520px 380px at -6% 78%, color-mix(in srgb, var(--accent-3) 12%, transparent), transparent 72%);
+    }
+    .backdrop-grid {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.6;
+      background-image:
+        linear-gradient(color-mix(in srgb, var(--accent) 10%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent) 1px, transparent 1px),
+        linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px);
+      background-size: 108px 108px, 108px 108px, 27px 27px, 27px 27px;
+      mask-image: radial-gradient(130% 100% at 50% 0%, #000 8%, transparent 82%);
+      -webkit-mask-image: radial-gradient(130% 100% at 50% 0%, #000 8%, transparent 82%);
+      animation: gridDrift 40s linear infinite;
+    }
+    @keyframes gridDrift {
+      from { background-position: 0 0, 0 0, 0 0, 0 0; }
+      to { background-position: 0 108px, 108px 0, 0 27px, 27px 0; }
+    }
+    /* Three slow orbs, blurred past recognition, to keep the field alive. */
+    .backdrop-orb {
+      position: fixed; z-index: 1; pointer-events: none;
+      width: 44vmax; height: 44vmax; border-radius: 50%;
+      filter: blur(90px); opacity: 0.36;
+    }
+    [data-theme="light"] .backdrop-orb { opacity: 0.4; filter: blur(80px); }
+    .backdrop-orb.a {
+      top: -18vmax; left: -10vmax;
+      background: radial-gradient(circle, color-mix(in srgb, var(--accent) 34%, transparent), transparent 68%);
+      animation: orbA 30s ease-in-out infinite;
+    }
+    .backdrop-orb.b {
+      bottom: -22vmax; right: -14vmax;
+      background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 46%, transparent), transparent 68%);
+      animation: orbB 38s ease-in-out infinite;
+    }
+    .backdrop-orb.c {
+      top: 34%; right: 16%; width: 26vmax; height: 26vmax;
+      background: radial-gradient(circle, color-mix(in srgb, var(--accent-3) 22%, transparent), transparent 70%);
+      animation: orbC 26s ease-in-out infinite;
+    }
+    @keyframes orbA { 50% { transform: translate3d(6vmax, 4vmax, 0) scale(1.12); } }
+    @keyframes orbB { 50% { transform: translate3d(-5vmax, -3vmax, 0) scale(1.08); } }
+    @keyframes orbC { 50% { transform: translate3d(-4vmax, 3vmax, 0) scale(1.18); } }
+    /* Smaller, softer orbs on phones: 90px blurs over a 44vmax box are the one
+       thing here that can cost real GPU time on a mid-range device. */
+    @media (max-width: 900px) {
+      .backdrop-orb { opacity: 0.3; filter: blur(54px); }
+      .backdrop-orb.a { width: 34vmax; height: 34vmax; }
+      .backdrop-orb.b { width: 32vmax; height: 32vmax; }
+      .backdrop-orb.c { display: none; }
+    }
+
+    /* Corner falloff, so the glow never fights the content for attention. */
+    .backdrop-vignette {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(120% 100% at 50% 30%, transparent 40%, color-mix(in srgb, var(--bg) 72%, transparent) 100%);
+    }
+    .scanlines {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none; opacity: 0.3;
+      background: repeating-linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--ink) 4%, transparent) 0 1px,
+        transparent 1px 3px
+      );
+      mix-blend-mode: overlay;
+    }
+
+    /* Frame registration marks: the operator-console tell, and they fill the
+       dead space at the edges on a wide monitor. */
+    .frame-marks { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+    .frame-marks span {
+      position: absolute; width: 26px; height: 26px; opacity: 0.5;
+      border-color: var(--line-strong); border-style: solid; border-width: 0;
+    }
+    .frame-marks span:nth-child(1) { top: 78px; left: 16px; border-top-width: 1px; border-left-width: 1px; }
+    .frame-marks span:nth-child(2) { top: 78px; right: 16px; border-top-width: 1px; border-right-width: 1px; }
+    .frame-marks span:nth-child(3) { bottom: 16px; left: 16px; border-bottom-width: 1px; border-left-width: 1px; }
+    .frame-marks span:nth-child(4) { bottom: 16px; right: 16px; border-bottom-width: 1px; border-right-width: 1px; }
+    .frame-marks i {
+      position: absolute; font-family: var(--font-mono); font-size: 9px;
+      letter-spacing: 0.34em; color: var(--ink-faint); opacity: 0.5;
+      text-transform: uppercase; font-style: normal;
+    }
+    .frame-marks i.left { top: 50%; left: 4px; transform: translateY(-50%) rotate(-90deg); transform-origin: left center; }
+    .frame-marks i.right { top: 50%; right: 4px; transform: translateY(-50%) rotate(90deg); transform-origin: right center; }
+    @media (max-width: 900px) { .frame-marks { display: none; } }
+
+    /* Panels sit slightly translucent so the field reads through them. */
+    .frame { background: color-mix(in srgb, var(--bg-panel) 93%, transparent); }
+
+    /* =====================================================================
+       Shared primitives
+       ===================================================================== */
     .frame {
       position: relative;
       background: var(--bg-panel);
       border: 1px solid var(--line-color);
       clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
     }
+    .icon { width: 18px; height: 18px; flex: none; display: block; }
+    .icon-sm { width: 14px; height: 14px; }
+    .icon-lg { width: 22px; height: 22px; }
 
-    /* ---------- bar ---------- */
+    .label {
+      font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ink-faint);
+    }
+
+    button, .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.1em;
+      text-transform: uppercase; cursor: pointer; text-decoration: none;
+      padding: 10px 15px; min-height: 38px;
+      border: 1px solid var(--line-strong);
+      background: transparent; color: var(--ink);
+      position: relative; overflow: hidden; isolation: isolate;
+      clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+      transition: background 0.2s var(--ease-out), border-color 0.2s, color 0.2s, transform 0.16s var(--ease-out), box-shadow 0.24s;
+    }
+    button::after, .btn::after {
+      content: ""; position: absolute; inset: 0; z-index: -1;
+      background: var(--sheen); transform: translateX(-140%);
+      transition: transform 0.55s var(--ease-out);
+    }
+    button:hover::after, .btn:hover::after { transform: translateX(140%); }
+    button:hover:not(:disabled), .btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    button:active:not(:disabled), .btn:active { transform: translateY(0) scale(0.985); }
+    button:focus-visible, .btn:focus-visible, a:focus-visible, [tabindex]:focus-visible,
+    input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent-3); outline-offset: 2px;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary, .btn.primary {
+      background: var(--accent-grad); border-color: transparent; color: #fff; font-weight: 500;
+      box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--accent) 80%, transparent);
+    }
+    button.primary:hover:not(:disabled) { color: #fff; box-shadow: 0 16px 38px -14px color-mix(in srgb, var(--accent) 90%, transparent); }
+    button.ghost { border-color: var(--line-color); color: var(--ink-soft); }
+    button.danger { border-color: color-mix(in srgb, var(--danger) 60%, transparent); color: var(--danger); }
+    button.danger:hover:not(:disabled) { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+    button.tiny, .btn.tiny { padding: 7px 11px; min-height: 32px; font-size: 10px; }
+    button.icon-only { padding: 8px; min-height: 34px; }
+    button.is-loading { pointer-events: none; }
+    button.is-loading .btn-label { opacity: 0.5; }
+
+    .spinner {
+      width: 13px; height: 13px; flex: none; border-radius: 50%;
+      border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+      border-top-color: currentColor;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* =====================================================================
+       Top bar
+       ===================================================================== */
     .bar {
-      position: sticky; top: 0; z-index: 20;
-      display: flex; align-items: center; gap: 18px;
-      padding: 0 22px; height: 66px;
-      background: color-mix(in srgb, var(--bg) 88%, transparent);
-      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 var(--pad); height: var(--bar-h);
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px) saturate(140%);
       border-bottom: 1px solid var(--line-color);
     }
-    .bar img { width: 30px; height: 30px; display: block; }
-    .bar-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--accent); }
-    .bar-spacer { flex: 1; }
-    .bar-user { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+    .bar::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.55; animation: barSweep 5.5s var(--ease-out) infinite;
+    }
+    @keyframes barSweep {
+      0% { transform: translateX(-100%); opacity: 0; }
+      40% { opacity: 0.6; }
+      100% { transform: translateX(100%); opacity: 0; }
+    }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-mark {
+      width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+      position: relative;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border: 1px solid var(--line-color);
+      clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    }
+    .brand-mark img { width: 21px; height: 21px; display: block; }
+    .brand-mark::after {
+      content: ""; position: absolute; inset: -1px; pointer-events: none;
+      background: conic-gradient(from 0deg, transparent 0 62%, var(--accent) 78%, transparent 92%);
+      opacity: 0.5; animation: spin 6s linear infinite;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude; -webkit-mask-composite: xor; padding: 1px;
+    }
+    .brand-text { min-width: 0; }
+    .brand-title {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
+      color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .brand-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-faint); }
+    .bar-spacer { flex: 1 1 auto; }
 
-    /* ---------- controls ---------- */
-    button, .btn {
-      font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.1em;
-      text-transform: uppercase; cursor: pointer;
-      padding: 10px 16px; border: 1px solid var(--line-strong);
-      background: transparent; color: var(--ink);
-      transition: background 0.2s var(--ease-out), border-color 0.2s, color 0.2s, transform 0.15s;
+    .operator {
+      display: flex; align-items: center; gap: 9px; min-width: 0;
+      padding: 5px 10px 5px 6px;
+      border: 1px solid var(--line-color); background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
       clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
     }
-    button:hover:not(:disabled), .btn:hover { border-color: var(--accent); color: var(--accent); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    button.primary {
-      background: var(--accent-grad); border-color: transparent; color: #fff; font-weight: 500;
+    .avatar {
+      width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+      font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      border: 1px solid var(--line-color); overflow: hidden;
     }
-    button.primary:hover:not(:disabled) { color: #fff; transform: translateY(-1px); }
-    button.ghost { border-color: var(--line-color); color: var(--ink-soft); }
-    button.danger { border-color: var(--danger); color: var(--danger); }
-    button.danger:hover:not(:disabled) { background: var(--danger); color: var(--bg); border-color: var(--danger); }
-    button.tiny { padding: 6px 10px; font-size: 10px; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .operator-text { min-width: 0; }
+    .operator-mail {
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-soft);
+      max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .role-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 2px 7px; border: 1px solid currentColor; color: var(--accent-3);
+    }
+    .role-chip.owner { color: var(--warn); }
+    .role-chip.viewer { color: var(--ink-faint); }
 
-    /* ---------- layout ---------- */
-    main { max-width: 1400px; margin: 0 auto; padding: 26px 22px 80px; }
-    .gate-wrap { max-width: 460px; margin: 12vh auto; padding: 34px; }
-    .gate-wrap h1 { font-family: var(--font-display); font-size: 26px; margin-bottom: 8px; }
-    .gate-wrap p { color: var(--ink-soft); font-size: 14px; margin-bottom: 22px; }
-    #gsi-button { min-height: 44px; margin-bottom: 14px; }
-    .gate-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex: none;
+      background: var(--success); box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 70%, transparent);
+      animation: pulse 2.4s var(--ease-out) infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 60%, transparent); }
+      70% { box-shadow: 0 0 0 7px transparent; }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
 
-    .console { display: grid; grid-template-columns: 340px 1fr; gap: 22px; align-items: start; }
-    @media (max-width: 980px) { .console { grid-template-columns: 1fr; } }
+    /* =====================================================================
+       Login gate
+       ===================================================================== */
+    .gate-shell {
+      position: relative; z-index: 5;
+      min-height: calc(100dvh - var(--bar-h));
+      display: grid; place-items: center;
+      padding: clamp(24px, 6vh, 70px) var(--pad) 60px;
+    }
+    .gate-stage { width: 100%; max-width: 1100px; display: grid; gap: clamp(22px, 4vw, 54px); grid-template-columns: 1fr; }
+    @media (min-width: 1000px) { .gate-stage { grid-template-columns: 1.05fr 0.95fr; align-items: center; } }
 
-    .panel-head {
-      display: flex; align-items: center; gap: 12px;
+    .gate-intro { animation: riseIn 0.8s var(--ease-out) both; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent-3); padding: 6px 12px; margin-bottom: 20px;
+      border: 1px solid var(--line-color); background: color-mix(in srgb, var(--accent) 7%, transparent);
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    }
+    .gate-intro h1 {
+      font-family: var(--font-display); font-weight: 800;
+      font-size: clamp(2.1rem, 5.4vw, 3.5rem); line-height: 1.02; letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .gate-intro h1 em {
+      font-style: normal; display: block;
+      background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .gate-intro p { color: var(--ink-soft); font-size: clamp(0.94rem, 1.6vw, 1.03rem); max-width: 46ch; }
+    .gate-points { display: grid; gap: 12px; margin-top: 26px; }
+    .gate-point { display: flex; gap: 12px; align-items: flex-start; }
+    .gate-point .icon {
+      width: 30px; height: 30px; padding: 6px; color: var(--accent);
+      border: 1px solid var(--line-color); background: color-mix(in srgb, var(--accent) 8%, transparent);
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    }
+    .gate-point strong { display: block; font-size: 13.5px; font-weight: 500; }
+    .gate-point span { font-size: 12.5px; color: var(--ink-faint); }
+
+    .gate-card {
+      position: relative; padding: 1px;
+      background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 42%, transparent), transparent 42%, color-mix(in srgb, var(--accent) 20%, transparent));
+      clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+      animation: riseIn 0.9s var(--ease-out) 0.08s both;
+    }
+    .gate-card-inner {
+      position: relative; overflow: hidden;
+      padding: clamp(26px, 3.4vw, 40px);
+      background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+      backdrop-filter: blur(12px);
+      clip-path: polygon(19px 0, 100% 0, 100% calc(100% - 19px), calc(100% - 19px) 100%, 0 100%, 0 19px);
+    }
+    .gate-card-inner::before {
+      content: ""; position: absolute; left: 0; right: 0; height: 42%;
+      top: -50%; pointer-events: none;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+      animation: gateScan 4.6s ease-in-out infinite;
+    }
+    @keyframes gateScan {
+      0% { top: -50%; opacity: 0; }
+      18% { opacity: 0.8; }
+      60% { opacity: 0.25; }
+      100% { top: 118%; opacity: 0; }
+    }
+    .gate-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .gate-head h2 { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
+    .gate-copy { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 22px; }
+    .term {
+      font-family: var(--font-mono); font-size: 11px; line-height: 1.7;
+      padding: 12px 14px; margin-bottom: 20px;
+      background: color-mix(in srgb, var(--bg) 62%, transparent);
+      border: 1px solid var(--line-color);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    .term-line { display: flex; gap: 10px; color: var(--ink-faint); }
+    .term-line b { color: var(--accent-3); font-weight: 500; }
+    .term-line span.ok { color: var(--success); }
+    .term-line span.warn { color: var(--warn); }
+    .term-line span.err { color: var(--danger); }
+    .caret::after {
+      content: "\258C"; margin-left: 2px; color: var(--accent);
+      animation: blink 1.1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    #gsi-button { min-height: 46px; margin-bottom: 12px; display: flex; justify-content: center; }
+    #gsi-button > div { width: 100% !important; }
+    #gsi-button iframe { max-width: 100%; }
+    .gate-note {
+      font-family: var(--font-mono); font-size: 10.5px; line-height: 1.6; color: var(--ink-faint);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .gate-note .icon { width: 13px; height: 13px; margin-top: 2px; }
+    .gate-foot {
+      display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+      margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line-color);
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-faint);
+    }
+    .gate-foot a { color: var(--ink-faint); }
+    .gate-foot a:hover { color: var(--accent); }
+
+    /* =====================================================================
+       Console shell
+       ===================================================================== */
+    .console { position: relative; z-index: 5; padding-bottom: 40px; }
+    .panel-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 16px var(--pad) 0;
+      max-width: 1500px; margin: 0 auto;
+    }
+    .tabs {
+      display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+      padding: 4px; position: relative;
+      border: 1px solid var(--line-color);
+      background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+      backdrop-filter: blur(10px);
+      clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      position: relative; display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 15px; min-height: 40px; white-space: nowrap;
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ink-faint); background: transparent; border: 0; cursor: pointer;
+      clip-path: none; transition: color 0.2s, background 0.24s var(--ease-out);
+    }
+    .tab::after { display: none; }
+    .tab:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); transform: none; }
+    .tab .tab-badge {
+      font-size: 9px; padding: 1px 6px; border: 1px solid var(--line-color); color: var(--ink-faint);
+    }
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .tab[aria-selected="true"] .tab-badge { border-color: var(--accent); color: var(--accent); }
+    .tab-ink {
+      position: absolute; bottom: 0; height: 2px; left: 0; width: 0;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      transition: transform 0.4s var(--ease-out), width 0.4s var(--ease-out);
+      pointer-events: none;
+    }
+    .panel-bar .spacer { flex: 1 1 auto; }
+
+    /* Compact tab labels on phones so all four fit without a scroll hunt. */
+    .tab-label-short { display: none; }
+    .tab-badge[hidden] { display: none; }
+    @media (max-width: 560px) {
+      .tab { padding: 10px 12px; gap: 6px; }
+      .tab-label-long { display: none; }
+      .tab-label-short { display: inline; }
+      .tab .tab-badge { display: none; }
+      .panel-bar { gap: 8px; }
+      .panel-bar .ghost .btn-label { display: none; }
+      .brand-sub { display: none; }
+    }
+
+    main { max-width: 1500px; margin: 0 auto; padding: 18px var(--pad) 0; }
+    .tabpanel { display: none; }
+    .tabpanel.is-active { display: block; animation: panelIn 0.5s var(--ease-out) both; }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* =====================================================================
+       Overview
+       ===================================================================== */
+    .tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+    .tile {
+      position: relative; padding: 18px; overflow: hidden;
+      animation: riseIn 0.6s var(--ease-out) both;
+    }
+    .tile::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%);
+    }
+    .tile:hover { border-color: var(--line-strong); }
+    .tile-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .tile-icon {
+      width: 34px; height: 34px; display: grid; place-items: center; color: var(--accent);
+      border: 1px solid var(--line-color); background: color-mix(in srgb, var(--accent) 8%, transparent);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    .tile-value {
+      font-family: var(--font-display); font-size: 2.1rem; font-weight: 700; line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .tile-value small { font-size: 0.42em; color: var(--ink-faint); margin-left: 6px; letter-spacing: 0.06em; }
+    .tile-foot { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 8px; }
+    .tile-spark { display: flex; align-items: flex-end; gap: 3px; height: 26px; margin-top: 12px; }
+    .tile-spark i {
+      flex: 1; min-width: 2px; height: 6%;
+      background: color-mix(in srgb, var(--accent) 55%, transparent);
+      animation: growUp 0.7s var(--ease-out) both;
+      transform-origin: bottom;
+    }
+    .tile-spark i:last-child { background: var(--accent); }
+    @keyframes growUp { from { transform: scaleY(0.05); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
+    .two-col { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 14px; }
+    @media (min-width: 1080px) { .two-col { grid-template-columns: 1.35fr 1fr; } }
+
+    .card-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
       padding: 14px 18px; border-bottom: 1px solid var(--line-color);
     }
-    .panel-head h2 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--ink-faint); font-weight: 400; }
-    .panel-head .count { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+    .card-head h2 {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--ink-soft); font-weight: 400;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .card-head .count { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+    .card-head .spacer { flex: 1 1 auto; }
+    .card-body { padding: 18px; }
+    .card-body.tight { padding: 0; }
 
-    /* ---------- list ---------- */
-    .list { max-height: 72vh; overflow-y: auto; }
+    .feed { max-height: 420px; overflow-y: auto; }
+    .feed-row {
+      display: flex; gap: 12px; padding: 12px 18px;
+      border-bottom: 1px solid var(--line-color);
+      animation: fadeIn 0.5s var(--ease-out) both;
+    }
+    .feed-row:last-child { border-bottom: 0; }
+    .feed-main { min-width: 0; flex: 1; }
+    .feed-sum { font-size: 13px; }
+    .feed-meta {
+      font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+      display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px;
+    }
+    .dot { width: 7px; height: 7px; flex: none; margin-top: 6px; background: var(--accent); }
+    .dot.ok { background: var(--success); }
+    .dot.denied { background: var(--warn); }
+    .dot.failed { background: var(--danger); }
+
+    /* =====================================================================
+       Projects
+       ===================================================================== */
+    .console-grid { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
+    @media (min-width: 1040px) { .console-grid { grid-template-columns: 350px minmax(0, 1fr); } }
+
+    .list-tools {
+      display: grid; gap: 9px; padding: 14px 16px;
+      border-bottom: 1px solid var(--line-color);
+    }
+    .search {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px; background: var(--bg-soft);
+      border: 1px solid var(--line-color);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+    .search .icon { color: var(--ink-faint); }
+    .search input {
+      flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-size: 13px;
+    }
+    .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 5px 9px; cursor: pointer; color: var(--ink-faint);
+      border: 1px solid var(--line-color); background: transparent;
+      clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+      transition: color 0.18s, border-color 0.18s, background 0.18s;
+    }
+    .chip::after { display: none; }
+    .chip:hover { color: var(--ink); border-color: var(--line-strong); transform: none; }
+    .chip[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+    .list { max-height: min(64vh, 640px); overflow-y: auto; }
+    @media (max-width: 1039px) { .list { max-height: 44vh; } }
     .row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 11px 18px; border-bottom: 1px solid var(--line-color);
-      cursor: pointer; transition: background 0.16s;
+      position: relative; display: flex; align-items: center; gap: 12px;
+      padding: 11px 16px; border-bottom: 1px solid var(--line-color);
+      cursor: pointer; text-align: left; width: 100%; background: transparent;
+      border-left: 0; border-right: 0; border-top: 0;
+      clip-path: none; min-height: 0;
+      animation: rowIn 0.42s var(--ease-out) both;
+      transition: background 0.16s;
     }
-    .row:hover { background: var(--bg-soft); }
-    .row.is-active { background: var(--bg-soft); box-shadow: inset 3px 0 0 var(--accent); }
+    .row::after { display: none; }
+    @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+    .row:hover { background: var(--bg-soft); transform: none; }
+    .row.is-active { background: var(--bg-soft); }
+    .row.is-active::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--accent); box-shadow: 0 0 14px var(--accent);
+      animation: fadeIn 0.3s var(--ease-out) both;
+    }
     .row-sym {
-      width: 34px; height: 34px; flex: none;
-      display: grid; place-items: center;
-      font-family: var(--font-mono); font-size: 11px;
-      background: var(--bg-soft); border: 1px solid var(--line-color); color: var(--accent);
+      width: 36px; height: 36px; flex: none; display: grid; place-items: center; overflow: hidden;
+      font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+      background: var(--bg-soft); border: 1px solid var(--line-color);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
     }
+    .row-sym img { width: 100%; height: 100%; object-fit: cover; }
     .row-main { min-width: 0; flex: 1; }
     .row-title { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+    .row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-pills { display: flex; gap: 5px; flex: none; }
+
     .pill {
-      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
-      padding: 2px 6px; border: 1px solid var(--line-color); color: var(--ink-faint);
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 7px; border: 1px solid var(--line-color); color: var(--ink-faint); white-space: nowrap;
     }
     .pill.on { border-color: var(--success); color: var(--success); }
-    .pill.draft { border-color: var(--danger); color: var(--danger); }
+    .pill.draft { border-color: var(--warn); color: var(--warn); }
     .pill.feat { border-color: var(--accent); color: var(--accent); }
-    .list-empty { padding: 26px 18px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+    .pill.owner { border-color: var(--warn); color: var(--warn); }
+    .pill.admin { border-color: var(--accent); color: var(--accent); }
+    .pill.viewer { border-color: var(--line-strong); color: var(--ink-soft); }
+    .pill.suspended { border-color: var(--danger); color: var(--danger); }
+    .pill.locked { border-color: var(--line-strong); color: var(--ink-faint); }
 
-    /* ---------- form ---------- */
-    .editor { padding: 22px; }
-    .editor-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-    .editor-head h1 { font-family: var(--font-display); font-size: 24px; flex: 1; min-width: 200px; }
-    .slug-line { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-bottom: 20px; }
+    .editor { padding: clamp(16px, 2.2vw, 26px); }
+    .editor-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+    .editor-head h1 { font-family: var(--font-display); font-size: clamp(1.3rem, 3vw, 1.7rem); flex: 1; min-width: 180px; }
+    .editor-sub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-bottom: 20px; word-break: break-all; }
 
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
     .grid .full { grid-column: 1 / -1; }
-    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
 
-    label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; color: var(--ink-faint); margin-bottom: 6px; text-transform: uppercase; }
-    input[type="text"], input[type="number"], textarea, select {
+    .field { display: block; }
+    .field > label, .field-label {
+      display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+      color: var(--ink-faint); margin-bottom: 6px; text-transform: uppercase;
+    }
+    input[type="text"], input[type="number"], input[type="email"], input[type="search"], input[type="date"], textarea, select {
       width: 100%; font-family: var(--font-body); font-size: 14px;
       padding: 10px 12px; color: var(--ink); background: var(--bg-soft);
-      border: 1px solid var(--line-color); outline: none;
-      transition: border-color 0.18s;
+      border: 1px solid var(--line-color); outline: none; border-radius: 0;
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
     }
-    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    input:disabled, textarea:disabled, select:disabled { opacity: 0.55; cursor: not-allowed; }
+    textarea { resize: vertical; min-height: 96px; line-height: 1.55; font-size: 13.5px; }
+    select { cursor: pointer; appearance: none; padding-right: 32px;
+      background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+      background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+      background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    }
     .hint { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 5px; }
 
-    .checks { display: flex; gap: 22px; flex-wrap: wrap; padding-top: 4px; }
-    .check { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
-    .check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+    .checks { display: flex; gap: 20px; flex-wrap: wrap; padding-top: 4px; }
+    .check {
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .check input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
     .drop {
-      border: 1px dashed var(--line-strong); padding: 16px;
-      display: flex; align-items: center; gap: 16px; cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      display: flex; align-items: center; gap: 16px; padding: 16px; cursor: pointer;
+      border: 1px dashed var(--line-strong);
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
     }
     .drop:hover, .drop.is-over { border-color: var(--accent); background: var(--bg-soft); }
-    .drop-preview { width: 92px; height: 62px; flex: none; display: grid; place-items: center; background: var(--bg-soft); border: 1px solid var(--line-color); overflow: hidden; }
+    .drop.is-over { transform: scale(1.01); }
+    .drop-preview {
+      width: 96px; height: 64px; flex: none; display: grid; place-items: center; overflow: hidden;
+      background: var(--bg-soft); border: 1px solid var(--line-color);
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
     .drop-preview img { width: 100%; height: 100%; object-fit: cover; }
     .drop-preview span { font-family: var(--font-mono); font-size: 16px; color: var(--ink-faint); }
     .drop-text { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); word-break: break-all; }
     .drop strong { display: block; font-family: var(--font-body); font-size: 13px; color: var(--ink); font-weight: 500; margin-bottom: 3px; }
 
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line-color); }
-    .actions .spacer { flex: 1; }
+    .actions {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line-color);
+    }
+    .actions .spacer { flex: 1 1 auto; }
+    @media (max-width: 620px) {
+      .actions button { flex: 1 1 100%; }
+      .actions .spacer { display: none; }
+    }
 
-    /* ---------- toast ---------- */
+    /* =====================================================================
+       Tables (roster + audit)
+       ===================================================================== */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    thead th {
+      position: sticky; top: 0; z-index: 2;
+      text-align: left; padding: 10px 14px; white-space: nowrap;
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-faint); background: var(--bg-elev);
+      border-bottom: 1px solid var(--line-color);
+    }
+    tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line-color); font-size: 13px; vertical-align: middle; }
+    tbody tr { animation: fadeIn 0.4s var(--ease-out) both; }
+    tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+    td.num, th.num { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
+    td.when { white-space: nowrap; }
+    .cell-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .cell-text { min-width: 0; }
+    .cell-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+    .cell-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+    .row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    .clickable { cursor: pointer; }
+
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      padding: 14px 18px; border-bottom: 1px solid var(--line-color);
+    }
+    .toolbar .grow { flex: 1 1 190px; min-width: 150px; }
+    .toolbar .spacer { flex: 1 1 auto; }
+    @media (max-width: 700px) {
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar .spacer { display: none; }
+      .toolbar > * { width: 100%; }
+      .toolbar .date-pair { display: flex; gap: 10px; }
+    }
+    .date-pair { display: flex; gap: 10px; }
+    .date-pair label { flex: 1; }
+    .date-pair span { display: block; }
+
+    .pad-note { padding: 26px 18px; text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 11.5px; }
+    .pad-note .icon { margin: 0 auto 10px; width: 26px; height: 26px; opacity: 0.6; }
+    /* The idle editor panel is the largest empty surface in the console, so it
+       gets a watermark rather than dead space. */
+    .pad-note.tall {
+      position: relative; overflow: hidden;
+      display: grid; place-content: center; gap: 0;
+      min-height: min(62vh, 520px);
+      padding: 40px 24px;
+    }
+    .pad-note.tall .watermark {
+      position: absolute; top: 50%; left: 50%;
+      width: clamp(150px, 26vw, 260px); height: auto;
+      transform: translate(-50%, -50%);
+      opacity: 0.055; pointer-events: none;
+      filter: saturate(0);
+    }
+    .pad-note.tall > * { position: relative; }
+    .watermark-grid {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
+      background-image:
+        linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent 78%);
+      -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent 78%);
+    }
+    .pad-note.tall .idle-title {
+      font-family: var(--font-hero); font-size: 12px; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--ink-soft);
+    }
+    .pad-note.tall .idle-sub { margin-top: 8px; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.05em; }
+
+    /* =====================================================================
+       Sheets (detail drawer + confirm)
+       ===================================================================== */
+    dialog {
+      border: 0; padding: 0; background: transparent; color: var(--ink);
+      max-width: min(620px, 92vw); width: 100%; margin: auto;
+    }
+    dialog::backdrop { background: rgba(2, 3, 6, 0.68); backdrop-filter: blur(3px); animation: fadeIn 0.25s ease both; }
+    dialog[open] { animation: sheetIn 0.36s var(--ease-out) both; }
+    @keyframes sheetIn { from { opacity: 0; transform: translateY(20px) scale(0.985); } to { opacity: 1; transform: none; } }
+    @media (max-width: 640px) {
+      dialog { max-width: 100vw; margin: auto auto 0; }
+      dialog[open] { animation: sheetUp 0.36s var(--ease-out) both; }
+      @keyframes sheetUp { from { transform: translateY(60px); } to { transform: none; } }
+    }
+    .sheet {
+      background: var(--bg-panel); border: 1px solid var(--line-strong);
+      clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+      max-height: 86dvh; display: flex; flex-direction: column;
+    }
+    .sheet-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line-color); }
+    .sheet-head h2 { font-family: var(--font-display); font-size: 1.05rem; flex: 1; }
+    .sheet-body { padding: 18px; overflow-y: auto; }
+    .sheet-foot { display: flex; gap: 10px; flex-wrap: wrap; padding: 15px 18px; border-top: 1px solid var(--line-color); }
+    .sheet-foot .spacer { flex: 1 1 auto; }
+    @media (max-width: 620px) { .sheet-foot button { flex: 1 1 100%; } .sheet-foot .spacer { display: none; } }
+
+    .dl { display: grid; gap: 10px; }
+    .dl-row { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .dl-row dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); padding-top: 2px; }
+    .dl-row dd { font-size: 13px; word-break: break-word; }
+    .dl-row dd.mono { font-size: 11.5px; color: var(--ink-soft); }
+    @media (max-width: 520px) { .dl-row { grid-template-columns: 1fr; gap: 2px; } }
+
+    .diff { display: grid; gap: 8px; margin-top: 4px; }
+    .diff-row {
+      display: grid; gap: 4px; padding: 10px 12px;
+      background: color-mix(in srgb, var(--bg) 55%, transparent);
+      border-left: 2px solid var(--accent);
+    }
+    .diff-field { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-3); }
+    .diff-vals { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
+    .diff-from { color: var(--danger); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 60%, transparent); }
+    .diff-to { color: var(--success); }
+    .arrow { color: var(--ink-faint); font-family: var(--font-mono); }
+
+    .stack { display: grid; gap: 10px; }
+    .warn-box {
+      display: flex; gap: 11px; align-items: flex-start; padding: 13px 15px;
+      border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+      background: color-mix(in srgb, var(--warn) 9%, transparent);
+      font-size: 13px;
+    }
+    .warn-box .icon { color: var(--warn); margin-top: 2px; }
+    .danger-box {
+      border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+      background: color-mix(in srgb, var(--danger) 9%, transparent);
+    }
+    .danger-box .icon { color: var(--danger); }
+
+    /* =====================================================================
+       Toasts
+       ===================================================================== */
+    .toasts {
+      position: fixed; z-index: 90; right: 18px; bottom: 18px;
+      display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+      max-width: min(390px, calc(100vw - 36px));
+      pointer-events: none;
+    }
+    @media (max-width: 620px) { .toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; align-items: stretch; } }
     .toast {
-      position: fixed; right: 20px; bottom: 20px; z-index: 60;
-      max-width: 380px; padding: 13px 16px;
-      font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
-      background: var(--bg-panel); border: 1px solid var(--line-strong); color: var(--ink);
-      opacity: 0; transform: translateY(10px); pointer-events: none;
-      transition: opacity 0.24s var(--ease-out), transform 0.24s var(--ease-out);
+      position: relative; overflow: hidden; width: 100%;
+      display: flex; gap: 11px; align-items: flex-start;
+      padding: 13px 15px 15px;
+      background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line-strong);
+      box-shadow: var(--glow);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      animation: toastIn 0.42s var(--ease-spring) both;
+      pointer-events: auto;
     }
-    .toast.show { opacity: 1; transform: translateY(0); }
-    .toast.ok { border-color: var(--success); }
-    .toast.err { border-color: var(--danger); }
+    .toast.out { animation: toastOut 0.3s var(--ease-out) both; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(26px) scale(0.97); } to { opacity: 1; transform: none; } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(20px) scale(0.98); } }
+    .toast .icon { margin-top: 1px; color: var(--accent); }
+    .toast.ok { border-color: color-mix(in srgb, var(--success) 60%, transparent); }
+    .toast.ok .icon { color: var(--success); }
+    .toast.err { border-color: color-mix(in srgb, var(--danger) 65%, transparent); }
+    .toast.err .icon { color: var(--danger); }
+    .toast-body { min-width: 0; flex: 1; }
+    .toast-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+    .toast-text { font-size: 13px; line-height: 1.45; word-break: break-word; }
+    .toast-close { background: transparent; border: 0; padding: 2px; min-height: 0; cursor: pointer; color: var(--ink-faint); }
+    .toast-close::after { display: none; }
+    .toast-close:hover { color: var(--ink); background: transparent; transform: none; }
+    .toast-bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--accent); opacity: 0.75; transform-origin: left; animation: drain linear forwards; }
+    .toast.ok .toast-bar { background: var(--success); }
+    .toast.err .toast-bar { background: var(--danger); }
+    @keyframes drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-    .hidden { display: none !important; }
-    .empty-state { padding: 60px 22px; text-align: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; }
+    /* =====================================================================
+       Skeletons
+       ===================================================================== */
+    .skeleton { position: relative; overflow: hidden; background: var(--bg-soft); }
+    .skeleton::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 12%, transparent), transparent);
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+    .skel-row { height: 58px; border-bottom: 1px solid var(--line-color); }
+    /* One shimmering block instead of a fake table: honest while loading. */
+    tbody.is-loading { display: block; height: 240px; }
+    tbody.is-loading tr { display: none; }
+    tbody.is-loading::after {
+      content: ""; display: block; height: 100%;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+                  var(--bg-soft);
+      animation: shimmer 1.4s infinite;
+    }
 
-    /* ---------- uplink wipe, mirrors the archive re-entry ---------- */
+    /* =====================================================================
+       Sign-out sequence
+       Drop curtain -> three status beats -> release the session -> collapse.
+       Mirrors the sign-in wipe, run the other way.
+       ===================================================================== */
+    #signout {
+      position: fixed; inset: 0; z-index: 30000;
+      display: none; pointer-events: none;
+    }
+    #signout.is-on { display: block; pointer-events: auto; }
+    .signout-layer { position: absolute; inset: 0; }
+    .signout-veil {
+      background: color-mix(in srgb, var(--bg) 72%, transparent);
+      backdrop-filter: blur(6px);
+      opacity: 0; transition: opacity 0.26s ease;
+    }
+    #signout.is-on .signout-veil { opacity: 1; }
+    .signout-stripes { display: grid; grid-template-columns: repeat(8, 1fr); overflow: hidden; }
+    .signout-stripes span {
+      background: var(--bg);
+      background-image:
+        linear-gradient(0deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent 46%),
+        linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-2) 22%, transparent));
+      border-right: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+      transform: translateY(-104%);
+    }
+    .signout-stripes span:nth-child(odd) {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 52%), var(--bg-elev);
+    }
+    #signout.is-closing .signout-stripes span {
+      animation: signoutDrop 0.5s cubic-bezier(0.55, 0, 0.85, 0.4) forwards;
+    }
+    #signout.is-closing .signout-stripes span:nth-child(1) { animation-delay: 0s; }
+    #signout.is-closing .signout-stripes span:nth-child(2) { animation-delay: 0.04s; }
+    #signout.is-closing .signout-stripes span:nth-child(3) { animation-delay: 0.08s; }
+    #signout.is-closing .signout-stripes span:nth-child(4) { animation-delay: 0.12s; }
+    #signout.is-closing .signout-stripes span:nth-child(5) { animation-delay: 0.16s; }
+    #signout.is-closing .signout-stripes span:nth-child(6) { animation-delay: 0.2s; }
+    #signout.is-closing .signout-stripes span:nth-child(7) { animation-delay: 0.24s; }
+    #signout.is-closing .signout-stripes span:nth-child(8) { animation-delay: 0.28s; }
+    @keyframes signoutDrop {
+      from { transform: translateY(-104%); }
+      to { transform: translateY(0); }
+    }
+    .signout-scan {
+      position: absolute; left: -10%; right: -10%; height: 22%; top: 30%;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--danger) 38%, transparent), transparent);
+      opacity: 0; mix-blend-mode: screen;
+    }
+    #signout.is-closing .signout-scan { animation: signoutSweep 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
+    @keyframes signoutSweep {
+      0% { transform: translateY(-140%); opacity: 0; }
+      30% { opacity: 0.75; }
+      100% { transform: translateY(200%); opacity: 0; }
+    }
+    .signout-core {
+      position: absolute; inset: 0; display: grid; place-items: center; z-index: 2;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    #signout.is-on .signout-core { opacity: 1; transition-delay: 0.24s; }
+    #signout.is-gone .signout-core { opacity: 0; transition-delay: 0s; transition-duration: 0.18s; }
+    .signout-card {
+      min-width: min(340px, 82vw);
+      padding: 22px 26px;
+      text-align: center;
+      border: 1px solid var(--line-strong);
+      background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+      backdrop-filter: blur(10px);
+      clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+      box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .signout-spinner {
+      width: 30px; height: 30px; margin: 0 auto 14px; border-radius: 50%;
+      border: 2px solid color-mix(in srgb, var(--accent) 26%, transparent);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+    .signout-status {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+      color: var(--accent-3); text-transform: uppercase;
+    }
+    .signout-sub {
+      margin-top: 6px; font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.08em; color: var(--ink-faint);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #signout.is-closing .signout-stripes span,
+      #signout.is-closing .signout-scan { animation: none !important; }
+      .signout-stripes span { transform: translateY(0); }
+    }
+
+    /* =====================================================================
+       Uplink wipe
+       ===================================================================== */
     html.from-core body { overflow: hidden; }
-    #console-enter {
-      position: fixed; inset: 0; z-index: 20000;
-      display: none; pointer-events: none; overflow: hidden;
-    }
+    #console-enter { position: fixed; inset: 0; z-index: 20000; display: none; pointer-events: none; overflow: hidden; }
     html.from-core #console-enter { display: block; pointer-events: auto; }
-    .console-enter-stripes {
-      position: absolute; inset: 0;
-      display: grid; grid-template-columns: repeat(8, 1fr);
-    }
+    .console-enter-stripes { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); }
     .console-enter-stripes span {
       background: var(--bg);
       background-image:
         linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
         linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-2) 25%, transparent));
-      transform: translateY(0);
       border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     }
     .console-enter-stripes span:nth-child(odd) {
@@ -245,649 +1075,2061 @@
     .console-enter-scan {
       position: absolute; left: -10%; right: -10%; height: 18%; top: 42%;
       background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
-      opacity: 0;
-      mix-blend-mode: screen;
+      opacity: 0; mix-blend-mode: screen;
     }
-    html.from-core.enter-play .console-enter-scan {
-      animation: consoleEnterScan 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
-    }
+    html.from-core.enter-play .console-enter-scan { animation: consoleEnterScan 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both; }
     @keyframes consoleEnterScan {
       0% { transform: translateY(-180%); opacity: 0; }
       25% { opacity: 0.9; }
       100% { transform: translateY(220%); opacity: 0; }
     }
-    .console-enter-core {
-      position: absolute; inset: 0;
-      display: grid; place-items: center;
-      z-index: 2;
-      transition: opacity 0.35s ease;
-    }
+    .console-enter-core { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; transition: opacity 0.35s ease; }
     html.from-core.enter-done .console-enter-core { opacity: 0; }
     .console-enter-status {
-      font-family: var(--font-mono);
-      font-size: clamp(0.78rem, 1.6vw, 0.95rem);
-      letter-spacing: 0.14em;
-      color: var(--accent-3);
-      text-align: center;
-      padding: 0.85rem 1.1rem;
-      border: 1px solid var(--line-strong);
+      font-family: var(--font-mono); font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+      letter-spacing: 0.14em; color: var(--accent-3); text-align: center;
+      padding: 0.85rem 1.1rem; border: 1px solid var(--line-strong);
       background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
       backdrop-filter: blur(10px);
       clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
       box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
     }
-    .console-enter-status em {
-      display: block;
-      margin-top: 0.35rem;
-      font-style: normal;
-      color: var(--ink-soft);
-      letter-spacing: 0.08em;
-      font-size: 0.78em;
-    }
-    html.from-core.enter-done #console-enter {
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.4s ease, visibility 0.4s;
-      pointer-events: none;
-    }
+    .console-enter-status em { display: block; margin-top: 0.35rem; font-style: normal; color: var(--ink-soft); letter-spacing: 0.08em; font-size: 0.78em; }
+    html.from-core.enter-done #console-enter { opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none; }
+
     @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
       html.from-core .console-enter-stripes span,
       html.from-core .console-enter-scan { animation: none !important; }
     }
+
+    /* Theme cross-fade. Applied for one beat by switchTheme(). */
+    html.is-theming body { opacity: 0.45; }
+    body { transition: opacity 0.18s ease; }
   </style>
 </head>
 <body>
-  <div id="console-enter" aria-hidden="true">
-    <div class="console-enter-stripes" aria-hidden="true">
-      <span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span>
+
+<!-- ======================= icon sprite ======================= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-gauge"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M13.4 10.6 19 5"/><path d="M20.5 16.5a9 9 0 1 0-17 0"/></g>
+    <g id="i-grid"><path d="M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z"/></g>
+    <g id="i-users"><path d="M16.5 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.9A3.4 3.4 0 0 0 3.5 18.4V20"/><path d="M10 11.2a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z"/><path d="M20.5 20v-1.6a3.4 3.4 0 0 0-2.6-3.3"/><path d="M15.6 4.2a3.6 3.6 0 0 1 0 7"/></g>
+    <g id="i-scroll"><path d="M5.5 3.5h9.5l4 4v13H5.5z"/><path d="M15 3.5v4h4"/><path d="M8.5 12h7M8.5 15.5h7M8.5 8.5h2.5"/></g>
+    <g id="i-monitor"><path d="M3.5 4.5h17v11h-17z"/><path d="M8.5 20h7M12 15.5V20"/></g>
+    <g id="i-mobile"><path d="M7.5 2.5h9v19h-9z"/><path d="M11 18.6h2"/></g>
+    <g id="i-shield"><path d="M12 2.8 4.6 5.9v5.5c0 4.6 3.1 8.1 7.4 9.8 4.3-1.7 7.4-5.2 7.4-9.8V5.9z"/><path d="M9 11.8l2.3 2.4L15.4 10"/></g>
+    <g id="i-lock"><path d="M6.6 10.5h10.8v10H6.6z"/><path d="M9.2 10.5V7.7a2.8 2.8 0 0 1 5.6 0v2.8"/></g>
+    <g id="i-logout"><path d="M14.5 7.5V5.6a1.9 1.9 0 0 0-1.9-1.9H6.3a1.9 1.9 0 0 0-1.9 1.9v12.8a1.9 1.9 0 0 0 1.9 1.9h6.3a1.9 1.9 0 0 0 1.9-1.9V16.5"/><path d="M9.5 12h10.4M17 8.8l3.2 3.2-3.2 3.2"/></g>
+    <g id="i-check"><path d="M5 12.6l4.4 4.4L19 7.4"/></g>
+    <g id="i-x"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/></g>
+    <g id="i-plus"><path d="M12 5.2v13.6M5.2 12h13.6"/></g>
+    <g id="i-search"><path d="M10.8 18.2a7.4 7.4 0 1 0 0-14.8 7.4 7.4 0 0 0 0 14.8Z"/><path d="M16.2 16.2 21 21"/></g>
+    <g id="i-trash"><path d="M3.8 6.6h16.4"/><path d="M9 6.6V4.5h6v2.1"/><path d="M5.9 6.6l1 13.4h10.2l1-13.4"/><path d="M10.4 10.6v5.6M13.6 10.6v5.6"/></g>
+    <g id="i-alert"><path d="M12 3.6 21.2 20H2.8z"/><path d="M12 9.6v4.6M12 17.2h.01"/></g>
+    <g id="i-image"><path d="M3.6 4.6h16.8v14.8H3.6z"/><path d="M8.3 10.4a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z"/><path d="M20.4 15 15.6 10.4 5 19.4"/></g>
+    <g id="i-upload"><path d="M12 16.4V4.8"/><path d="M7.6 9.2 12 4.8l4.4 4.4"/><path d="M4.6 19.2h14.8"/></g>
+    <g id="i-activity"><path d="M3.4 13h4l2.6-6.6L13.4 17l2.4-6h4.8"/></g>
+    <g id="i-filter"><path d="M4 5.2h16l-6.2 7.3v6.3l-3.6 1.8v-8.1z"/></g>
+    <g id="i-download"><path d="M12 4.4v11.8"/><path d="M7.6 11.8 12 16.2l4.4-4.4"/><path d="M4.6 19.4h14.8"/></g>
+    <g id="i-clock"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 7.2V12l3.4 2"/></g>
+    <g id="i-key"><path d="M14.6 14.6a5.2 5.2 0 1 1 3.7-3.7l2.1 2.1-2 2-1.6-1.6-2 2-1.6-1.6-1.8 1.8"/></g>
+    <g id="i-sparkle"><path d="M12 3.4l1.9 5.3 5.3 1.9-5.3 1.9L12 17.8l-1.9-5.3L4.8 10.6l5.3-1.9z"/><path d="M18.6 16.4l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></g>
+    <g id="i-external"><path d="M14.2 4.6h5.2v5.2"/><path d="M19.4 4.6 11.6 12.4"/><path d="M18 13.6v5.8H4.6V6h5.8"/></g>
+    <g id="i-info"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 11v5.4M12 7.8h.01"/></g>
+    <g id="i-save"><path d="M5 4.6h11l3.4 3.4v11.4H5z"/><path d="M8.4 4.6v5.2h6.2V4.6"/><path d="M8.4 19.4v-5.2h7.2v5.2"/></g>
+    <g id="i-refresh"><path d="M20 11.4a8 8 0 1 0-1.6 5.6"/><path d="M20.4 5.6v5.8h-5.8"/></g>
+    <g id="i-eye-off"><path d="M4 4l16 16"/><path d="M9.6 9.7A3.2 3.2 0 0 0 12 15.2c.9 0 1.7-.4 2.3-.9"/><path d="M6.4 6.6C4.5 7.9 3 9.8 2.4 12c1.3 3.9 5.1 6.4 9.6 6.4 1.6 0 3.1-.3 4.4-.9"/><path d="M10.2 5.8A9.7 9.7 0 0 1 12 5.6c4.5 0 8.3 2.5 9.6 6.4-.3.9-.7 1.7-1.3 2.4"/></g>
+    <g id="i-terminal"><path d="M4 4.6h16v14.8H4z"/><path d="M8 10l2.6 2.4L8 14.8M13 15.4h3.4"/></g>
+    <g id="i-cloud"><path d="M17.4 18.4H7.6a4.1 4.1 0 0 1-.5-8.2 5.3 5.3 0 0 1 10.2 1 3.6 3.6 0 0 1 .1 7.2Z"/></g>
+  </defs>
+</svg>
+
+<!-- ======================= uplink wipe ======================= -->
+<div id="console-enter" aria-hidden="true">
+  <div class="console-enter-stripes" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
+  </div>
+  <div class="console-enter-scan" aria-hidden="true"></div>
+  <div class="console-enter-core">
+    <div class="console-enter-status mono" id="console-enter-status"></div>
+  </div>
+</div>
+
+<!-- ======================= sign-out sequence ======================= -->
+<div id="signout" aria-hidden="true">
+  <div class="signout-layer signout-veil"></div>
+  <div class="signout-layer signout-stripes" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
+  </div>
+  <div class="signout-layer signout-scan" aria-hidden="true"></div>
+  <div class="signout-core">
+    <div class="signout-card" role="status" aria-live="polite">
+      <div class="signout-spinner" aria-hidden="true"></div>
+      <div class="signout-status" id="signout-status">// SIGNING_OUT</div>
+      <div class="signout-sub" id="signout-sub">revoking this session</div>
     </div>
-    <div class="console-enter-scan" aria-hidden="true"></div>
-    <div class="console-enter-core">
-      <div class="console-enter-status mono" id="console-enter-status"></div>
+  </div>
+</div>
+
+<!-- ======================= backdrop ======================= -->
+<canvas id="neural-canvas" aria-hidden="true"></canvas>
+<div class="backdrop-texture" aria-hidden="true"></div>
+<div class="backdrop-glow" aria-hidden="true"></div>
+<div class="backdrop-orb a" aria-hidden="true"></div>
+<div class="backdrop-orb b" aria-hidden="true"></div>
+<div class="backdrop-orb c" aria-hidden="true"></div>
+<div class="backdrop-grid" aria-hidden="true"></div>
+<div class="backdrop-vignette" aria-hidden="true"></div>
+<div class="scanlines" aria-hidden="true"></div>
+<div class="frame-marks" aria-hidden="true">
+  <span></span><span></span><span></span><span></span>
+  <i class="left">lumina · frameworks</i>
+  <i class="right">operator console</i>
+</div>
+
+<!-- ======================= bar ======================= -->
+<header class="bar">
+  <div class="brand">
+    <div class="brand-mark">
+      <img id="brand-logo" src="./assets/lumina-logo-dark.png" alt="Lumina Frameworks" />
+    </div>
+    <div class="brand-text">
+      <div class="brand-title">// ADMIN_CONSOLE</div>
+      <div class="brand-sub" id="bar-status">SECURE CHANNEL</div>
     </div>
   </div>
 
-  <header class="bar">
-    <img src="./assets/lumina-logo-dark.png" alt="" />
-    <span class="bar-title">// ADMIN_CONSOLE</span>
-    <span class="bar-spacer"></span>
-    <span class="bar-user" id="bar-user"></span>
-    <button class="ghost tiny" id="theme-toggle" type="button">Theme</button>
-    <a class="btn tiny" href="./index.html" id="view-site">View site</a>
-    <button class="ghost tiny hidden" id="logout" type="button">Sign out</button>
-  </header>
+  <span class="bar-spacer"></span>
+
+  <div class="operator hidden" id="operator-chip">
+    <span class="avatar" id="operator-avatar">--</span>
+    <div class="operator-text">
+      <div class="operator-mail" id="bar-user"></div>
+    </div>
+    <span class="role-chip" id="bar-role">viewer</span>
+  </div>
+
+  <button class="ghost tiny hidden" id="quick-logout" type="button" title="Sign out">
+    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-logout"/></svg>
+    <span class="btn-label">Sign out</span>
+  </button>
+  <button class="ghost tiny icon-only" id="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>
+  </button>
+  <a class="btn tiny hidden" href="./index.html" id="view-site">
+    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-external"/></svg>
+    <span class="btn-label">View site</span>
+  </a>
+</header>
+
+<!-- ======================= login gate ======================= -->
+<section class="gate-shell" id="gate">
+  <div class="gate-stage">
+    <div class="gate-intro">
+      <span class="eyebrow">
+        <span class="live-dot" aria-hidden="true"></span>
+        Restricted surface · authorised operators
+      </span>
+      <h1>Control room for<em>Lumina Frameworks</em></h1>
+      <p>
+        Publish projects, manage who can get in, and read back every action taken on
+        this console. Sign-in is tied to your Google account; nothing else is accepted.
+      </p>
+
+      <div class="gate-points">
+        <div class="gate-point">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cloud"/></svg>
+          <div>
+            <strong>Signature-verified sign-in</strong>
+            <span>Your Google ID token is checked against Google's keys, then discarded. No password is ever stored here.</span>
+          </div>
+        </div>
+        <div class="gate-point">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scroll"/></svg>
+          <div>
+            <strong>Every action is logged</strong>
+            <span>Who published what, from which device, and what changed. Denied attempts included.</span>
+          </div>
+        </div>
+        <div class="gate-point">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>
+          <div>
+            <strong>Roles, not guesswork</strong>
+            <span>Owners manage access, admins ship projects, viewers read. Change it any time, effective immediately.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gate-card">
+      <div class="gate-card-inner">
+        <div class="gate-head">
+          <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><use href="#i-lock"/></svg>
+          <h2>Admin access</h2>
+        </div>
+        <p class="gate-copy">Authenticate to open the console.</p>
+
+        <div class="term" id="gate-term" role="status" aria-live="polite">
+          <div class="term-line"><b>// AUTH</b><span id="gate-term-line">initialising secure channel</span></div>
+        </div>
+
+        <div id="gsi-button"></div>
+        <p class="gate-note" id="gate-note">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg>
+          <span>Only allowlisted Google accounts can sign in.</span>
+        </p>
+
+        <div class="gate-foot">
+          <span id="gate-clock">--:--:-- MYT</span>
+          <a href="./index.html">← Back to site</a>
+          <span>v2 · 2026</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= console ======================= -->
+<div class="console hidden" id="console">
+  <div class="panel-bar">
+    <div class="tabs" role="tablist" aria-label="Console sections">
+      <button class="tab" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" data-tab="overview" type="button">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-gauge"/></svg>
+        <span class="tab-label-long">Overview</span><span class="tab-label-short">Home</span>
+      </button>
+      <button class="tab" id="tab-projects" role="tab" aria-selected="false" aria-controls="panel-projects" data-tab="projects" type="button">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-grid"/></svg>
+        <span class="tab-label-long">Projects</span><span class="tab-label-short">Works</span>
+        <span class="tab-badge" id="badge-projects" hidden>0</span>
+      </button>
+      <button class="tab" id="tab-admins" role="tab" aria-selected="false" aria-controls="panel-admins" data-tab="admins" type="button">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg>
+        <span class="tab-label-long">Admin manager</span><span class="tab-label-short">Access</span>
+        <span class="tab-badge" id="badge-admins" hidden>0</span>
+      </button>
+      <button class="tab" id="tab-audit" role="tab" aria-selected="false" aria-controls="panel-audit" data-tab="audit" type="button">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scroll"/></svg>
+        <span class="tab-label-long">Audit log</span><span class="tab-label-short">Log</span>
+        <span class="tab-badge" id="badge-audit" hidden>0</span>
+      </button>
+      <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
+    </div>
+    <span class="spacer"></span>
+    <button class="ghost tiny" id="refresh" type="button" title="Reload this section">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>
+      <span class="btn-label">Refresh</span>
+    </button>
+  </div>
 
   <main>
-    <!-- login gate -->
-    <section class="frame gate-wrap" id="gate">
-      <h1>Admin access</h1>
-      <p>Sign in with an authorised Google account to manage projects.</p>
-      <div id="gsi-button"></div>
-      <p class="gate-note" id="gate-note">Loading Google sign-in…</p>
+    <!-- ---------- overview ---------- -->
+    <section class="tabpanel is-active" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="-1">
+      <div class="tiles" id="overview-tiles"></div>
+
+      <div class="two-col">
+        <div class="frame">
+          <div class="card-head">
+            <h2><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-activity"/></svg> Recent activity</h2>
+            <span class="spacer"></span>
+            <button class="ghost tiny" id="overview-to-audit" type="button">Open audit log</button>
+          </div>
+          <div class="feed" id="overview-feed"></div>
+        </div>
+
+        <div class="frame">
+          <div class="card-head">
+            <h2><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-monitor"/></svg> Live sessions</h2>
+            <span class="spacer"></span>
+            <span class="count" id="overview-session-count">0</span>
+          </div>
+          <div class="feed" id="overview-sessions"></div>
+        </div>
+      </div>
     </section>
 
-    <!-- console -->
-    <section class="console hidden" id="console">
-      <aside class="frame">
-        <div class="panel-head">
-          <h2>Projects</h2>
-          <span class="count" id="list-count">0</span>
-          <span class="bar-spacer"></span>
-          <button class="tiny primary" id="new-project" type="button">New</button>
-        </div>
-        <div class="list" id="list"></div>
-      </aside>
-
-      <div class="frame" id="editor-panel">
-        <div class="empty-state" id="editor-empty">Select a project, or create a new one.</div>
-
-        <form class="editor hidden" id="editor" novalidate>
-          <div class="editor-head">
-            <h1 id="editor-heading">New project</h1>
-            <span class="pill" id="editor-status"></span>
-          </div>
-          <p class="slug-line" id="editor-slug"></p>
-
-          <div class="grid">
-            <div>
-              <label for="f-title">Title</label>
-              <input type="text" id="f-title" maxlength="120" required />
-            </div>
-            <div>
-              <label for="f-symbol">Symbol (1-4 chars)</label>
-              <input type="text" id="f-symbol" maxlength="4" required />
-              <p class="hint">Shown on the card when there is no image.</p>
-            </div>
-            <div>
-              <label for="f-category">Category / lane</label>
-              <input type="text" id="f-category" maxlength="40" list="category-list" required />
-              <datalist id="category-list"></datalist>
-            </div>
-            <div>
-              <label for="f-year">Year</label>
-              <input type="number" id="f-year" min="2000" max="2100" required />
-            </div>
-            <div class="full">
-              <label for="f-tagline">Carousel tagline</label>
-              <input type="text" id="f-tagline" maxlength="60" />
-              <p class="hint">Home page carousel label, e.g. PC BUILD COACH. Falls back to the category.</p>
-            </div>
-            <div class="full">
-              <label for="f-blurb">Description</label>
-              <textarea id="f-blurb" maxlength="600" required></textarea>
-              <p class="hint">Used on both the archive grid and the home carousel.</p>
-            </div>
-            <div class="full">
-              <label>Project image</label>
-              <div class="drop" id="drop">
-                <div class="drop-preview" id="drop-preview"><span>--</span></div>
-                <div style="flex:1; min-width:0;">
-                  <strong>Drop an image, or click to browse</strong>
-                  <div class="drop-text" id="drop-text">PNG, JPEG, or WebP. Max 5MB.</div>
-                </div>
-                <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" class="hidden" />
-              </div>
-              <p class="hint" id="image-url-hint"></p>
-            </div>
-            <div class="full">
-              <label for="f-url">Live URL (optional)</label>
-              <input type="text" id="f-url" placeholder="https://" />
-            </div>
-            <div>
-              <label for="f-stack">Stack (comma separated, max 6)</label>
-              <input type="text" id="f-stack" />
-            </div>
-            <div>
-              <label for="f-tags">Tags (comma separated, max 12)</label>
-              <input type="text" id="f-tags" />
-            </div>
-            <div>
-              <label for="f-sort">Sort order</label>
-              <input type="number" id="f-sort" />
-              <p class="hint">Lower numbers come first.</p>
-            </div>
-            <div>
-              <label>Visibility</label>
-              <div class="checks">
-                <label class="check"><input type="checkbox" id="f-published" /> Published</label>
-                <label class="check"><input type="checkbox" id="f-featured" /> Featured</label>
-              </div>
-              <p class="hint">Featured projects appear in the home page carousel.</p>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="primary" type="submit" id="save">Save project</button>
-            <button class="ghost" type="button" id="reset">Revert</button>
+    <!-- ---------- projects ---------- -->
+    <section class="tabpanel" id="panel-projects" role="tabpanel" aria-labelledby="tab-projects" tabindex="-1">
+      <div class="console-grid">
+        <aside class="frame">
+          <div class="card-head">
+            <h2><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-grid"/></svg> Projects</h2>
+            <span class="count" id="list-count">0</span>
             <span class="spacer"></span>
-            <button class="danger" type="button" id="unpublish">Unpublish</button>
-            <button class="danger" type="button" id="destroy">Delete permanently</button>
+            <button class="tiny primary" id="new-project" type="button">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
+              <span class="btn-label">New</span>
+            </button>
           </div>
-        </form>
+          <div class="list-tools">
+            <label class="search">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>
+              <input type="search" id="project-search" placeholder="Search title, category, tag…" autocomplete="off" />
+            </label>
+            <div class="chip-row">
+              <button class="chip" id="filter-all" aria-pressed="true" type="button">All</button>
+              <button class="chip" id="filter-live" aria-pressed="false" type="button">Live</button>
+              <button class="chip" id="filter-draft" aria-pressed="false" type="button">Drafts</button>
+              <button class="chip" id="filter-featured" aria-pressed="false" type="button">Featured</button>
+            </div>
+          </div>
+          <div class="list" id="list"></div>
+        </aside>
+
+        <div class="frame" id="editor-panel">
+          <div class="pad-note tall" id="editor-empty">
+            <span class="watermark-grid" aria-hidden="true"></span>
+            <img class="watermark" id="idle-mark" src="./assets/lumina-logo-dark.png" alt="" aria-hidden="true" />
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-terminal"/></svg>
+            <div class="idle-title">No project selected</div>
+            <div class="idle-sub">Choose a project from the list, or start a new one.</div>
+          </div>
+
+          <form class="editor hidden" id="editor" novalidate>
+            <div class="editor-head">
+              <h1 id="editor-heading">New project</h1>
+              <span class="pill" id="editor-status"></span>
+            </div>
+            <p class="editor-sub" id="editor-slug"></p>
+
+            <div class="grid">
+              <div class="field">
+                <label for="f-title">Title</label>
+                <input type="text" id="f-title" maxlength="120" required />
+              </div>
+              <div class="field">
+                <label for="f-symbol">Symbol (1-4 chars)</label>
+                <input type="text" id="f-symbol" maxlength="4" required />
+                <p class="hint">Shown on the card when there is no image.</p>
+              </div>
+              <div class="field">
+                <label for="f-category">Category / lane</label>
+                <input type="text" id="f-category" maxlength="40" list="category-list" required />
+                <datalist id="category-list"></datalist>
+              </div>
+              <div class="field">
+                <label for="f-year">Year</label>
+                <input type="number" id="f-year" min="2000" max="2100" required />
+              </div>
+              <div class="field full">
+                <label for="f-tagline">Carousel tagline</label>
+                <input type="text" id="f-tagline" maxlength="60" />
+                <p class="hint">Home page carousel label, e.g. PC BUILD COACH. Falls back to the category.</p>
+              </div>
+              <div class="field full">
+                <label for="f-blurb">Description</label>
+                <textarea id="f-blurb" maxlength="600" required></textarea>
+                <p class="hint">Used on both the archive grid and the home carousel.</p>
+              </div>
+              <div class="field full">
+                <span class="field-label">Project image</span>
+                <div class="drop" id="drop" role="button" tabindex="0" aria-label="Upload a project image">
+                  <div class="drop-preview" id="drop-preview">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-image"/></svg>
+                  </div>
+                  <div style="flex:1; min-width:0;">
+                    <strong>Drop an image, or click to browse</strong>
+                    <div class="drop-text" id="drop-text">PNG, JPEG, or WebP. Max 5MB.</div>
+                  </div>
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-faint)"><use href="#i-upload"/></svg>
+                  <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                </div>
+                <p class="hint" id="image-url-hint"></p>
+              </div>
+              <div class="field full">
+                <label for="f-url">Live URL (optional)</label>
+                <input type="text" id="f-url" placeholder="https://" />
+              </div>
+              <div class="field">
+                <label for="f-stack">Stack (comma separated, max 6)</label>
+                <input type="text" id="f-stack" />
+              </div>
+              <div class="field">
+                <label for="f-tags">Tags (comma separated, max 12)</label>
+                <input type="text" id="f-tags" />
+              </div>
+              <div class="field">
+                <label for="f-sort">Sort order</label>
+                <input type="number" id="f-sort" />
+                <p class="hint">Lower numbers come first.</p>
+              </div>
+              <div class="field">
+                <span class="field-label">Visibility</span>
+                <div class="checks">
+                  <label class="check"><input type="checkbox" id="f-published" /> Published</label>
+                  <label class="check"><input type="checkbox" id="f-featured" /> Featured</label>
+                </div>
+                <p class="hint">Featured projects appear in the home page carousel.</p>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="primary" type="submit" id="save">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-save"/></svg>
+                <span class="btn-label">Save project</span>
+              </button>
+              <button class="ghost" type="button" id="reset">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>
+                <span class="btn-label">Revert</span>
+              </button>
+              <span class="spacer"></span>
+              <button class="danger" type="button" id="unpublish">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye-off"/></svg>
+                <span class="btn-label">Unpublish</span>
+              </button>
+              <button class="danger" type="button" id="destroy">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trash"/></svg>
+                <span class="btn-label">Delete</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- admins ---------- -->
+    <section class="tabpanel" id="panel-admins" role="tabpanel" aria-labelledby="tab-admins" tabindex="-1">
+      <div class="frame">
+        <div class="card-head">
+          <h2><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg> Admin manager</h2>
+          <span class="spacer"></span>
+          <span class="count" id="admins-count">0</span>
+          <button class="tiny primary hidden" id="invite-open" type="button">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
+            <span class="btn-label">Add admin</span>
+          </button>
+        </div>
+        <div id="admins-denied" class="pad-note hidden">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg>
+          <div id="admins-denied-text">Managing access needs the owner role.</div>
+        </div>
+        <div id="admins-wrap">
+          <div class="tiles" id="admins-tiles" style="padding:16px"></div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Operator</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Last seen</th>
+                  <th>Sessions</th>
+                  <th class="num" style="text-align:right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admins-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- audit ---------- -->
+    <section class="tabpanel" id="panel-audit" role="tabpanel" aria-labelledby="tab-audit" tabindex="-1">
+      <div class="frame">
+        <div class="card-head">
+          <h2><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scroll"/></svg> Audit log</h2>
+          <span class="spacer"></span>
+          <span class="count" id="audit-count">0</span>
+        </div>
+
+        <div class="toolbar">
+          <label class="search grow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>
+            <input type="search" id="audit-search" placeholder="Search summary, actor, record…" autocomplete="off" />
+          </label>
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-faint)" aria-hidden="true"><use href="#i-filter"/></svg>
+          <select id="audit-action" aria-label="Filter by category">
+            <option value="">All activity</option>
+            <option value="project.">Projects</option>
+            <option value="media.">Media</option>
+            <option value="admin.">Roster</option>
+            <option value="session.">Sessions</option>
+            <option value="auth.">Sign-in</option>
+          </select>
+          <select id="audit-actor" aria-label="Filter by operator">
+            <option value="">Everyone</option>
+          </select>
+          <select id="audit-status" aria-label="Filter by outcome">
+            <option value="">Any outcome</option>
+            <option value="ok">Succeeded</option>
+            <option value="denied">Denied</option>
+            <option value="failed">Failed</option>
+          </select>
+          <div class="date-pair">
+            <label><span class="sr-only">From date</span><input type="date" id="audit-since" aria-label="From date" /></label>
+            <label><span class="sr-only">To date</span><input type="date" id="audit-until" aria-label="To date" /></label>
+          </div>
+          <button class="ghost tiny" id="audit-clear" type="button">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>
+            <span class="btn-label">Clear</span>
+          </button>
+          <button class="ghost tiny" id="audit-export" type="button">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-download"/></svg>
+            <span class="btn-label">CSV</span>
+          </button>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Operator</th>
+                <th>Action</th>
+                <th>What happened</th>
+                <th>Device</th>
+                <th>From</th>
+                <th class="num" style="text-align:right">Detail</th>
+              </tr>
+            </thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card-head" style="border-top:1px solid var(--line-color); border-bottom:0;">
+          <button class="ghost tiny" id="audit-more" type="button">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
+            <span class="btn-label">Load more</span>
+          </button>
+          <span class="spacer"></span>
+          <span class="label" id="audit-range"></span>
+        </div>
       </div>
     </section>
   </main>
+</div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- ======================= sheets ======================= -->
+<dialog id="detail-sheet" aria-labelledby="detail-title">
+  <div class="sheet">
+    <div class="sheet-head">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><use href="#i-scroll"/></svg>
+      <h2 id="detail-title">Event detail</h2>
+      <button class="ghost tiny icon-only" data-close type="button" aria-label="Close">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="detail-body"></div>
+    <div class="sheet-foot">
+      <span class="spacer"></span>
+      <button class="ghost" data-close type="button">Close</button>
+    </div>
+  </div>
+</dialog>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="./assets/projects-feed.js"></script>
-  <script>
-    (() => {
-      "use strict";
-      const { escapeHtml, safeImage } = window.LuminaProjects;
+<dialog id="admin-sheet" aria-labelledby="admin-sheet-title">
+  <form class="sheet" id="admin-form" method="dialog">
+    <div class="sheet-head">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><use href="#i-users"/></svg>
+      <h2 id="admin-sheet-title">Add an admin</h2>
+      <button class="ghost tiny icon-only" data-close type="button" aria-label="Close">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <div class="stack">
+        <div class="field" id="admin-email-field">
+          <label for="admin-email">Google account email</label>
+          <input type="email" id="admin-email" placeholder="name@lumina-frameworks.com" autocomplete="off" />
+          <p class="hint">Access is granted the first time they sign in with this exact address.</p>
+        </div>
+        <div class="field">
+          <label for="admin-role">Role</label>
+          <select id="admin-role">
+            <option value="admin">Admin · manage projects and sessions</option>
+            <option value="viewer">Viewer · read-only</option>
+            <option value="owner">Owner · full access, manages the roster</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="admin-note">Note (optional)</label>
+          <input type="text" id="admin-note" maxlength="200" placeholder="Why this person has access" />
+        </div>
+        <div class="warn-box" id="admin-sheet-warn">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert"/></svg>
+          <span>Changing someone's role or suspending them signs them out of every device immediately.</span>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button class="danger" id="admin-remove" type="button">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trash"/></svg>
+        <span class="btn-label">Remove access</span>
+      </button>
+      <span class="spacer"></span>
+      <button class="ghost" data-close type="button">Cancel</button>
+      <button class="primary" id="admin-save" type="submit">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <span class="btn-label">Save</span>
+      </button>
+    </div>
+  </form>
+</dialog>
 
-      const $ = (id) => document.getElementById(id);
-      const els = {
-        gate: $("gate"), console: $("console"), note: $("gate-note"), gsi: $("gsi-button"),
-        logout: $("logout"), user: $("bar-user"), list: $("list"), listCount: $("list-count"),
-        editor: $("editor"), editorEmpty: $("editor-empty"), heading: $("editor-heading"),
-        status: $("editor-status"), slug: $("editor-slug"), toast: $("toast"),
-        newProject: $("new-project"), themeToggle: $("theme-toggle"),
-        drop: $("drop"), dropPreview: $("drop-preview"), dropText: $("drop-text"),
-        fileInput: $("file-input"), imageHint: $("image-url-hint"), categoryList: $("category-list"),
-        save: $("save"), reset: $("reset"), unpublish: $("unpublish"), destroy: $("destroy")
+<dialog id="confirm-sheet" aria-labelledby="confirm-title">
+  <div class="sheet">
+    <div class="sheet-head">
+      <svg class="icon" id="confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--warn)"><use href="#i-alert"/></svg>
+      <h2 id="confirm-title">Are you sure?</h2>
+      <button class="ghost tiny icon-only" data-close type="button" aria-label="Close">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="confirm-body"></div>
+    <div class="sheet-foot">
+      <span class="spacer"></span>
+      <button class="ghost" data-close type="button">Cancel</button>
+      <button class="danger" id="confirm-go" type="button">Confirm</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toasts" id="toasts" role="region" aria-live="polite" aria-label="Notifications"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="./assets/projects-feed.js"></script>
+<script src="./assets/admin-utils.js"></script>
+<script>
+  (() => {
+    "use strict";
+
+    const { escapeHtml, safeImage } = window.LuminaProjects;
+    const U = window.LuminaAdmin;
+
+    const $ = (id) => document.getElementById(id);
+    const el = {
+      /* chrome */
+      gate: $("gate"), console: $("console"), barStatus: $("bar-status"),
+      operatorChip: $("operator-chip"), avatar: $("operator-avatar"), user: $("bar-user"),
+      role: $("bar-role"), logout: $("quick-logout"), viewSite: $("view-site"),
+      themeToggle: $("theme-toggle"), brandLogo: $("brand-logo"), refresh: $("refresh"),
+      tabInk: $("tab-ink"), toasts: $("toasts"),
+      /* overview */
+      tiles: $("overview-tiles"), feed: $("overview-feed"), sessions: $("overview-sessions"),
+      sessionCount: $("overview-session-count"),
+      /* projects */
+      list: $("list"), listCount: $("list-count"), newProject: $("new-project"),
+      editorPanel: $("editor-panel"),
+      search: $("project-search"), editor: $("editor"), editorEmpty: $("editor-empty"),
+      idleMark: $("idle-mark"),
+      heading: $("editor-heading"), status: $("editor-status"), slug: $("editor-slug"),
+      categoryList: $("category-list"), save: $("save"), reset: $("reset"),
+      unpublish: $("unpublish"), destroy: $("destroy"),
+      drop: $("drop"), dropPreview: $("drop-preview"), dropText: $("drop-text"),
+      fileInput: $("file-input"), imageHint: $("image-url-hint"),
+      /* admins */
+      adminsWrap: $("admins-wrap"), adminsDenied: $("admins-denied"), adminsDeniedText: $("admins-denied-text"),
+      adminsTiles: $("admins-tiles"), adminsBody: $("admins-body"), adminsCount: $("admins-count"),
+      inviteOpen: $("invite-open"), adminSheet: $("admin-sheet"), adminForm: $("admin-form"),
+      adminEmail: $("admin-email"), adminRole: $("admin-role"), adminNote: $("admin-note"),
+      adminEmailField: $("admin-email-field"), adminRemove: $("admin-remove"), adminSave: $("admin-save"),
+      adminSheetTitle: $("admin-sheet-title"), adminSheetWarn: $("admin-sheet-warn"),
+      /* audit */
+      auditBody: $("audit-body"), auditCount: $("audit-count"), auditSearch: $("audit-search"),
+      auditAction: $("audit-action"), auditActor: $("audit-actor"), auditStatus: $("audit-status"),
+      auditSince: $("audit-since"), auditUntil: $("audit-until"), auditClear: $("audit-clear"),
+      auditExport: $("audit-export"), auditMore: $("audit-more"), auditRange: $("audit-range"),
+      /* sheets */
+      detailSheet: $("detail-sheet"), detailTitle: $("detail-title"), detailBody: $("detail-body"),
+      confirmSheet: $("confirm-sheet"), confirmTitle: $("confirm-title"),
+      confirmBody: $("confirm-body"), confirmGo: $("confirm-go"), confirmIcon: $("confirm-icon"),
+      signout: $("signout"), signoutStatus: $("signout-status"), signoutSub: $("signout-sub"),
+      /* gate */
+      gsi: $("gsi-button"), note: $("gate-note"), termLine: $("gate-term-line"), clock: $("gate-clock")
+    };
+
+    const F = {
+      title: $("f-title"), symbol: $("f-symbol"), category: $("f-category"), year: $("f-year"),
+      tagline: $("f-tagline"), blurb: $("f-blurb"), url: $("f-url"), stack: $("f-stack"),
+      tags: $("f-tags"), sort: $("f-sort"), published: $("f-published"), featured: $("f-featured")
+    };
+
+    const state = {
+      viewer: null,          // { email, role, name, picture }
+      projects: [], current: null, imageUrl: null,
+      filter: "all", query: "",
+      audit: { events: [], total: 0, offset: 0, limit: 50, loading: false, sessions: [] },
+      admins: { list: [], counts: {}, loading: false },
+      overviewEvents: [],
+      activeTab: "overview",
+      loaded: { overview: false, admins: false, audit: false },
+      expiryHandled: false,
+      signingOut: false,
+      adminEditing: null
+    };
+
+    const canWrite = () => U.can(state.viewer?.role, "admin");
+    const isOwner = () => U.can(state.viewer?.role, "owner");
+
+    /* ================= feedback ================= */
+
+    const TOAST_ICON = { ok: "#i-check", err: "#i-alert", info: "#i-info" };
+
+    function toast(message, kind = "info", title) {
+      const node = document.createElement("div");
+      node.className = "toast " + kind;
+      node.innerHTML =
+        '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="' +
+        (TOAST_ICON[kind] || TOAST_ICON.info) + '"/></svg>' +
+        '<div class="toast-body">' +
+        '<div class="toast-title">' + escapeHtml(title || (kind === "err" ? "Failed" : kind === "ok" ? "Done" : "Console")) + "</div>" +
+        '<div class="toast-text">' + escapeHtml(message) + "</div></div>" +
+        '<button class="toast-close" type="button" aria-label="Dismiss">' +
+        '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg></button>' +
+        '<span class="toast-bar" style="animation-duration:6000ms"></span>';
+
+      const dismiss = () => {
+        if (node.classList.contains("out")) return;
+        node.classList.add("out");
+        setTimeout(() => node.remove(), 320);
       };
+      node.querySelector(".toast-close").addEventListener("click", dismiss);
+      el.toasts.appendChild(node);
+      setTimeout(dismiss, 6000);
+    }
 
-      const F = {
-        title: $("f-title"), symbol: $("f-symbol"), category: $("f-category"), year: $("f-year"),
-        tagline: $("f-tagline"), blurb: $("f-blurb"), url: $("f-url"), stack: $("f-stack"),
-        tags: $("f-tags"), sort: $("f-sort"), published: $("f-published"), featured: $("f-featured")
-      };
-
-      let projects = [];
-      let current = null;   // the project being edited (null = new)
-      let imageUrl = null;  // current image value, relative path or absolute URL
-      let toastTimer = null;
-
-      /* ---------- feedback ---------- */
-      function toast(message, kind) {
-        els.toast.textContent = message;
-        els.toast.className = "toast show " + (kind || "");
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { els.toast.className = "toast " + (kind || ""); }, 5200);
+    function busy(button, on, label) {
+      if (!button) return;
+      button.disabled = on;
+      button.classList.toggle("is-loading", on);
+      const slot = button.querySelector(".btn-label");
+      if (slot && label) {
+        if (!button.dataset.label) button.dataset.label = slot.textContent;
+        slot.textContent = on ? label : button.dataset.label;
       }
+    }
 
-      function busy(on) {
-        els.save.disabled = on;
-        els.save.textContent = on ? "Saving…" : "Save project";
-      }
+    /* ================= api ================= */
 
-      /* ---------- api ---------- */
-      let sessionExpiredHandled = false;
+    function sessionExpired() {
+      if (state.expiryHandled) return;
+      state.expiryHandled = true;
+      toast("Your session ended. Signing you out…", "err", "Session expired");
+      setTimeout(() => location.reload(), 1400);
+    }
 
-      function sessionExpired() {
-        if (sessionExpiredHandled) return;
-        sessionExpiredHandled = true;
-        toast("Your session ended. Signing you out…", "err");
-        // A reload lands on the login gate, which is the only correct place to
-        // be once the cookie is gone or the account left the allowlist.
-        setTimeout(() => location.reload(), 1200);
-      }
-
-      async function api(path, options) {
-        // Headers are merged, not replaced: a caller passing Content-Type must
-        // not silently drop Accept.
-        const { headers, ...rest } = options || {};
-        const response = await fetch(path, {
-          credentials: "same-origin",
-          ...rest,
-          headers: { Accept: "application/json", ...(headers || {}) }
-        });
-
-        let data = {};
-        try { data = await response.json(); } catch (_) {}
-
-        if (response.status === 401) {
-          sessionExpired();
-          throw new Error("Session expired.");
-        }
-        if (!response.ok) {
-          throw new Error(data.error || ("Request failed (" + response.status + ")"));
-        }
-        return data;
-      }
-
-      /* ---------- theme ---------- */
-      els.themeToggle.addEventListener("click", () => {
-        const html = document.documentElement;
-        const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
-        html.setAttribute("data-theme", next);
-        try { localStorage.setItem("lumina-theme", next); } catch (_) {}
-        document.querySelectorAll('img[src*="lumina-logo"]').forEach((img) => {
-          img.src = next === "dark" ? "./assets/lumina-logo-dark.png" : "./assets/lumina-logo-light.png";
-        });
+    async function api(path, options) {
+      const { headers, ...rest } = options || {};
+      const response = await fetch(path, {
+        credentials: "same-origin",
+        ...rest,
+        headers: { Accept: "application/json", ...(headers || {}) }
       });
 
-      /* ---------- auth ---------- */
-      async function loadConfig() {
-        try {
-          const config = await api("/api/auth/config");
-          if (!config.configured) {
-            els.note.textContent = "Auth is not configured on the server yet. Set GOOGLE_CLIENT_ID and AUTH_SECRET.";
-            return null;
-          }
-          return config.clientId;
-        } catch (err) {
-          els.note.textContent = "Could not reach the auth endpoint: " + err.message;
+      let data = {};
+      try { data = await response.json(); } catch (_) {}
+
+      if (response.status === 401) {
+        sessionExpired();
+        throw new Error("Session expired.");
+      }
+      if (!response.ok) {
+        throw new Error(data.error || ("Request failed (" + response.status + ")"));
+      }
+      return data;
+    }
+
+    /* ================= theme ================= */
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      const dark = theme === "dark";
+      const mark = dark ? "./assets/lumina-logo-dark.png" : "./assets/lumina-logo-light.png";
+
+      if (el.brandLogo) el.brandLogo.src = mark;
+      if (el.idleMark) el.idleMark.src = mark;
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", dark ? "#05060a" : "#eef3f8");
+      document.querySelectorAll('img[src*="lumina-logo"]').forEach((img) => {
+        img.src = mark;
+      });
+    }
+
+    /**
+     * Theme swap with a short cross-fade. Several layers change colour at once
+     * (canvas, texture PNG, glows), and snapping between them reads as a flash.
+     */
+    function switchTheme() {
+      const root = document.documentElement;
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (reduce) {
+        applyTheme(next);
+      } else {
+        root.classList.add("is-theming");
+        setTimeout(() => {
+          applyTheme(next);
+          setTimeout(() => root.classList.remove("is-theming"), 190);
+        }, 130);
+      }
+      try { localStorage.setItem("lumina-theme", next); } catch (_) {}
+      el.themeToggle.setAttribute(
+        "aria-label",
+        next === "dark" ? "Switch to light theme" : "Switch to dark theme"
+      );
+    }
+
+    el.themeToggle.addEventListener("click", switchTheme);
+
+    /* ================= auth ================= */
+
+    function term(text, tone) {
+      if (!el.termLine) return;
+      el.termLine.textContent = text;
+      el.termLine.className = tone || "";
+    }
+
+    function setNote(text) {
+      const span = el.note.querySelector("span") || el.note;
+      span.textContent = text;
+    }
+
+    async function loadConfig() {
+      try {
+        const config = await api("/api/auth/config");
+        if (!config.configured) {
+          term("server is missing GOOGLE_CLIENT_ID or AUTH_SECRET", "err");
+          setNote("Auth is not configured on the server yet.");
           return null;
         }
+        return config.clientId;
+      } catch (err) {
+        term("auth endpoint unreachable", "err");
+        setNote("Could not reach the auth endpoint: " + err.message);
+        return null;
+      }
+    }
+
+    function renderGoogleButton(clientId) {
+      if (!window.google?.accounts?.id) {
+        term("google identity script blocked", "warn");
+        setNote("Google sign-in was blocked. Check your connection or extensions.");
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: onCredential,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+      window.google.accounts.id.renderButton(el.gsi, {
+        theme: document.documentElement.getAttribute("data-theme") === "dark" ? "filled_black" : "outline",
+        size: "large",
+        width: 340,
+        text: "signin_with",
+        shape: "rectangular",
+        logo_alignment: "left"
+      });
+      term("awaiting credentials", "ok");
+      setNote("Only allowlisted Google accounts can sign in.");
+    }
+
+    async function onCredential(response) {
+      term("verifying token signature…");
+      try {
+        const result = await api("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: response.credential })
+        });
+        term("access granted as " + result.role, "ok");
+        await openConsole(result);
+        toast("Signed in as " + result.email, "ok", "Welcome back");
+      } catch (err) {
+        term(err.message, "err");
+        toast(err.message, "err", "Sign-in refused");
+      }
+    }
+
+    /* ---------- sign-out sequence ---------- */
+
+    const SIGNOUT_LINES = [
+      ["// SIGNING_OUT", "revoking this session"],
+      ["// SESSION_REVOKED", "clearing local state"],
+      ["// GOODBYE", "see you next time"]
+    ];
+
+    function signoutStep(index) {
+      const [title, sub] = SIGNOUT_LINES[Math.min(index, SIGNOUT_LINES.length - 1)];
+      el.signoutStatus.textContent = title;
+      el.signoutSub.textContent = sub;
+    }
+
+    /**
+     * Plays the exit sequence, then hands the page back to the login gate.
+     * The overlay goes up on the first frame rather than after the request:
+     * a dead click that waits on the network reads as a broken button.
+     */
+    function playSignout() {
+      state.signingOut = true;
+      signoutStep(0);
+      el.signout.classList.add("is-on");
+      document.body.style.overflow = "hidden";
+
+      setTimeout(() => {
+        el.signout.classList.add("is-closing");
+        signoutStep(1);
+      }, 240);
+      setTimeout(() => signoutStep(2), 700);
+      setTimeout(() => {
+        el.signout.classList.add("is-gone");
+        // Clear the marker so the login gate does not replay the entry wipe.
+        try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
+        location.href = "./admin.html";
+      }, 1250);
+    }
+
+    async function signOut() {
+      if (state.signingOut) return;
+      playSignout();
+      try {
+        await api("/api/auth/logout", { method: "POST" });
+      } catch (err) {
+        // A 401 here means the session was already gone, which is the outcome
+        // we wanted. The page reloads into the gate either way.
+        console.warn("sign-out request failed:", err.message);
+      }
+    }
+
+    el.logout.addEventListener("click", () => {
+      if (state.signingOut) return;
+      signOut();
+    });
+
+    // Return trip: hand the home page its own re-entry wipe on the way out.
+    el.viewSite?.addEventListener("click", () => {
+      try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
+    });
+
+    async function openConsole(viewer) {
+      state.viewer = viewer;
+      el.gate.classList.add("hidden");
+      el.console.classList.remove("hidden");
+      el.operatorChip.classList.remove("hidden");
+      el.logout.classList.remove("hidden");
+      el.viewSite.classList.remove("hidden");
+      el.user.textContent = viewer.email;
+      el.role.textContent = U.roleLabel(viewer.role);
+      el.role.className = "role-chip " + viewer.role;
+      el.barStatus.textContent = viewer.role.toUpperCase() + " SESSION · LIVE";
+      el.avatar.innerHTML = viewer.picture
+        ? '<img src="' + escapeHtml(U.safeUrl(viewer.picture)) + '" alt="" />'
+        : escapeHtml(U.initials(viewer.name || viewer.email));
+
+      // Role-gated affordances, applied once.
+      document.querySelectorAll("[data-owner-only]").forEach((node) => {
+        node.classList.toggle("hidden", !isOwner());
+      });
+      document.querySelectorAll("[data-write-only]").forEach((node) => {
+        node.classList.toggle("hidden", !canWrite());
+      });
+      el.newProject.classList.toggle("hidden", !canWrite());
+      el.save.classList.toggle("hidden", !canWrite());
+      el.reset.classList.toggle("hidden", !canWrite());
+
+      syncTabInk();
+      await Promise.all([loadOverview(), loadProjects()]);
+    }
+
+    /* ================= tabs ================= */
+
+    function syncTabInk() {
+      const active = document.querySelector('.tab[aria-selected="true"]');
+      if (!active || !el.tabInk) return;
+      const ink = el.tabInk;
+      ink.style.width = active.offsetWidth + "px";
+      ink.style.transform = "translateX(" + active.offsetLeft + "px)";
+    }
+
+    function selectTab(name, { focus = false } = {}) {
+      const tab = document.querySelector('.tab[data-tab="' + name + '"]');
+      if (!tab) return;
+      document.querySelectorAll(".tab").forEach((node) => {
+        node.setAttribute("aria-selected", String(node === tab));
+      });
+      document.querySelectorAll(".tabpanel").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.id === "panel-" + name);
+      });
+      state.activeTab = name;
+      syncTabInk();
+      try { history.replaceState(null, "", "#" + name); } catch (_) {}
+
+      if (name === "admins" && !state.loaded.admins) loadAdmins();
+      if (name === "audit" && !state.loaded.audit) loadAudit({ reset: true });
+      if (name === "overview" && !state.loaded.overview) loadOverview();
+      if (focus) tab.focus();
+    }
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => selectTab(tab.dataset.tab));
+      tab.addEventListener("keydown", (event) => {
+        const names = [...document.querySelectorAll(".tab")].map((t) => t.dataset.tab);
+        const index = names.indexOf(tab.dataset.tab);
+        if (event.key === "ArrowRight") selectTab(names[(index + 1) % names.length], { focus: true });
+        if (event.key === "ArrowLeft") selectTab(names[(index - 1 + names.length) % names.length], { focus: true });
+      });
+    });
+    window.addEventListener("resize", syncTabInk);
+
+    el.refresh.addEventListener("click", () => {
+      const name = state.activeTab;
+      if (name === "overview") loadOverview();
+      if (name === "projects") loadProjects();
+      if (name === "admins") loadAdmins();
+      if (name === "audit") loadAudit({ reset: true });
+      toast("Reloaded " + name + ".", "info", "Refresh");
+    });
+
+    $("overview-to-audit").addEventListener("click", () => selectTab("audit"));
+
+    /* ================= overview ================= */
+
+    /** Badges stay hidden until there is a real number to show. */
+    function setBadge(id, value) {
+      const node = $(id);
+      if (!node) return;
+      node.textContent = String(value);
+      node.hidden = false;
+    }
+
+    const SKELETON_TILES = Array.from({ length: 4 }, () => '<div class="frame tile skeleton" style="height:132px"></div>').join("");
+
+    function tile({ icon, label, value, unit, foot, spark }) {
+      return (
+        '<article class="frame tile">' +
+        '<div class="tile-top">' +
+        '<span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="' + icon + '"/></svg></span>' +
+        '<span class="label">' + escapeHtml(label) + "</span></div>" +
+        '<div class="tile-value">' + escapeHtml(String(value)) + (unit ? "<small>" + escapeHtml(unit) + "</small>" : "") + "</div>" +
+        (foot ? '<div class="tile-foot">' + escapeHtml(foot) + "</div>" : "") +
+        (spark || "") +
+        "</article>"
+      );
+    }
+
+    function sparkline(series) {
+      const max = Math.max(1, ...series.map((point) => point.count));
+      return (
+        '<div class="tile-spark" title="Actions per day, last 14 days">' +
+        series.map((point, index) =>
+          '<i style="height:' + Math.max(6, Math.round((point.count / max) * 100)) + "%;animation-delay:" + index * 32 + 'ms" title="' +
+          escapeHtml(point.day + ": " + point.count) + '"></i>'
+        ).join("") +
+        "</div>"
+      );
+    }
+
+    async function loadOverview() {
+      el.tiles.innerHTML = SKELETON_TILES;
+      try {
+        const data = await api("/api/admin/overview");
+        if (data.viewer) state.viewer = { ...state.viewer, ...data.viewer };
+
+        el.tiles.innerHTML = [
+          tile({
+            icon: "#i-grid", label: "Projects",
+            value: data.projects.total,
+            unit: data.projects.published + " live",
+            foot: data.projects.drafts + " draft(s) · " + data.projects.featured + " featured"
+          }),
+          tile({
+            icon: "#i-activity", label: "Actions · 24h",
+            value: data.audit.total,
+            unit: data.audit.actors + " operator(s)",
+            foot: data.audit.denied + " denied · " + data.audit.failed + " failed"
+          }),
+          tile({
+            icon: "#i-users", label: "Roster",
+            value: data.roster.total,
+            unit: data.roster.owners + " owner(s)",
+            foot: data.roster.admins + " admin · " + data.roster.viewers + " viewer"
+          }),
+          tile({
+            icon: "#i-monitor", label: "Live sessions",
+            value: data.sessions.live,
+            foot: "Across all operators",
+            spark: sparkline(data.series)
+          })
+        ].join("");
+
+        renderFeed(data.recent);
+        renderSessionList(el.sessions, data.sessions.recent, { compact: true });
+        el.sessionCount.textContent = String(data.sessions.live);
+        setBadge("badge-projects", data.projects.total);
+        setBadge("badge-admins", data.roster.total);
+        setBadge("badge-audit", data.audit.total);
+        // The actor filter is only useful once we know who has been acting.
+        const actors = [...new Set((data.recent || []).map((event) => event.actor))].sort();
+        const chosenActor = el.auditActor.value;
+        el.auditActor.innerHTML =
+          '<option value="">Everyone</option>' +
+          actors.map((actor) => '<option value="' + escapeHtml(actor) + '">' + escapeHtml(actor) + "</option>").join("");
+        el.auditActor.value = chosenActor || "";
+        state.overviewEvents = data.recent || [];
+        state.loaded.overview = true;
+      } catch (err) {
+        el.tiles.innerHTML = '<div class="frame pad-note">' + escapeHtml(err.message) + "</div>";
+      }
+    }
+
+    function renderFeed(events) {
+      if (!events.length) {
+        el.feed.innerHTML = '<div class="pad-note">Nothing recorded yet.</div>';
+        return;
+      }
+      el.feed.innerHTML = events.map((event, index) =>
+        '<div class="feed-row" style="animation-delay:' + index * 40 + 'ms">' +
+        '<span class="dot ' + escapeHtml(event.status) + '"></span>' +
+        '<div class="feed-main">' +
+        '<div class="feed-sum">' + escapeHtml(event.summary || U.actionLabel(event.action)) + "</div>" +
+        '<div class="feed-meta"><span>' + escapeHtml(event.actor) + "</span><span>" +
+        escapeHtml(U.relativeTime(event.at)) + "</span><span>" + escapeHtml(event.device || "Unknown device") +
+        "</span>" + (event.country ? "<span>" + escapeHtml(event.country) + "</span>" : "") + "</div>" +
+        "</div>" +
+        '<button class="ghost tiny" data-event="' + event.id + '" type="button">Detail</button>' +
+        "</div>"
+      ).join("");
+    }
+
+    function renderSessionList(target, sessions, { compact = false } = {}) {
+      if (!sessions || !sessions.length) {
+        target.innerHTML = '<div class="pad-note">No live sessions.</div>';
+        return;
+      }
+      target.innerHTML = sessions.map((session, index) => {
+        return (
+          '<div class="feed-row" style="animation-delay:' + index * 40 + 'ms">' +
+          '<span class="tile-icon">' +
+          '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="' +
+          U.deviceIcon(session.device) + '"/></svg></span>' +
+          '<div class="feed-main">' +
+          '<div class="feed-sum">' + escapeHtml(session.email) +
+          (session.current ? ' <span class="pill on">this device</span>' : "") + "</div>" +
+          '<div class="feed-meta"><span>' + escapeHtml(session.device || "Unknown device") + "</span>" +
+          "<span>signed in " + escapeHtml(U.relativeTime(session.loginAt)) + "</span>" +
+          "<span>seen " + escapeHtml(U.relativeTime(session.lastSeen)) + "</span>" +
+          (session.country ? "<span>" + escapeHtml(session.country) + "</span>" : "") + "</div>" +
+          "</div>" +
+          (compact || !canWrite()
+            ? ""
+            : '<button class="ghost tiny" data-revoke="' + escapeHtml(session.id) + '" type="button">Sign out</button>') +
+          "</div>"
+        );
+      }).join("");
+    }
+
+    el.sessions.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-revoke]");
+      if (button) revokeSession(button.dataset.revoke);
+    });
+
+    el.feed.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-event]");
+      if (!button) return;
+      const found = state.overviewEvents.find((entry) => String(entry.id) === button.dataset.event);
+      if (found) showEvent(found);
+    });
+
+    async function revokeSession(id) {
+      const ok = await confirmAction({
+        title: "Sign that session out?",
+        body: "The device loses access on its next request. The person can sign in again with Google.",
+        confirm: "Sign out device"
+      });
+      if (!ok) return;
+      try {
+        await api("/api/admin/sessions/" + encodeURIComponent(id), { method: "DELETE" });
+        toast("Session revoked.", "ok");
+        loadOverview();
+        if (state.loaded.audit) loadAudit({ reset: true });
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    }
+
+    /* ================= projects ================= */
+
+    async function loadProjects() {
+      el.list.innerHTML = Array.from({ length: 6 }, () => '<div class="skel-row skeleton"></div>').join("");
+      try {
+        const data = await api("/api/admin/projects");
+        state.projects = data.projects || [];
+        if (data.viewer) state.viewer = { ...state.viewer, ...data.viewer };
+        renderList();
+        updateCategoryOptions();
+      } catch (err) {
+        el.list.innerHTML = '<div class="pad-note">' + escapeHtml(err.message) + "</div>";
+      }
+    }
+
+    function visibleProjects() {
+      const query = state.query.trim().toLowerCase();
+      return state.projects.filter((project) => {
+        if (state.filter === "live" && !project.published) return false;
+        if (state.filter === "draft" && project.published) return false;
+        if (state.filter === "featured" && !project.featured) return false;
+        if (!query) return true;
+        return [project.title, project.category, project.symbol, project.slug, (project.tags || []).join(" ")]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      });
+    }
+
+    function renderList() {
+      const list = visibleProjects();
+      el.listCount.textContent = list.length + (list.length !== state.projects.length ? " / " + state.projects.length : "");
+      setBadge("badge-projects", state.projects.length);
+
+      if (!list.length) {
+        el.list.innerHTML =
+          '<div class="pad-note">' +
+          (state.projects.length ? "No project matches that filter." : "No projects yet. Create one to get started.") +
+          "</div>";
+        return;
       }
 
-      function renderGoogleButton(clientId) {
-        if (!window.google || !window.google.accounts) {
-          els.note.textContent = "Google sign-in script was blocked. Check your connection or extensions.";
-          return;
-        }
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: onCredential,
-          auto_select: false,
-          cancel_on_tap_outside: true
-        });
-        window.google.accounts.id.renderButton(els.gsi, {
-          theme: document.documentElement.getAttribute("data-theme") === "dark" ? "filled_black" : "outline",
-          size: "large",
-          width: 380,
-          text: "signin_with",
-          shape: "rectangular"
-        });
-        els.note.textContent = "Only allowlisted Google accounts can sign in.";
-      }
+      el.list.innerHTML = list.map((project, index) => {
+        const image = safeImage(project.image);
+        const pills =
+          (project.published ? '<span class="pill on">Live</span>' : '<span class="pill draft">Draft</span>') +
+          (project.featured ? '<span class="pill feat">Feat</span>' : "");
+        const active = state.current && state.current.slug === project.slug ? " is-active" : "";
+        return (
+          '<button class="row' + active + '" data-slug="' + escapeHtml(project.slug) + '" type="button" style="animation-delay:' +
+          Math.min(index * 26, 320) + 'ms">' +
+          '<span class="row-sym">' +
+          (image ? '<img src="' + escapeHtml(image) + '" alt="" />' : escapeHtml(project.symbol)) +
+          "</span>" +
+          '<span class="row-main">' +
+          '<span class="row-title">' + escapeHtml(project.title) + "</span>" +
+          '<span class="row-sub">' + escapeHtml(project.category) + " · " + escapeHtml(project.year) + "</span>" +
+          "</span>" +
+          '<span class="row-pills">' + pills + "</span>" +
+          "</button>"
+        );
+      }).join("");
+    }
 
-      async function onCredential(response) {
-        els.note.textContent = "Verifying…";
-        try {
-          const result = await api("/api/auth/google", {
+    el.list.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-slug]");
+      if (row) selectProject(row.dataset.slug);
+    });
+
+    el.search.addEventListener("input", () => {
+      state.query = el.search.value;
+      renderList();
+    });
+
+    const FILTERS = { all: $("filter-all"), live: $("filter-live"), draft: $("filter-draft"), featured: $("filter-featured") };
+    Object.entries(FILTERS).forEach(([key, button]) => {
+      button.addEventListener("click", () => {
+        state.filter = key;
+        Object.entries(FILTERS).forEach(([other, node]) => node.setAttribute("aria-pressed", String(other === key)));
+        renderList();
+      });
+    });
+
+    function selectProject(slug) {
+      const project = state.projects.find((p) => p.slug === slug);
+      if (!project) return;
+      state.current = project;
+      fill(project);
+      renderList();
+      if (window.matchMedia("(max-width: 1039px)").matches) {
+        el.editorPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    function fill(project) {
+      el.editorEmpty.classList.add("hidden");
+      el.editor.classList.remove("hidden");
+      el.heading.textContent = project.title || "New project";
+      el.slug.textContent = project.slug ? "slug: " + project.slug : "a slug will be generated from the title";
+      el.status.textContent = project.published ? "LIVE" : "DRAFT";
+      el.status.className = "pill " + (project.published ? "on" : "draft");
+
+      F.title.value = project.title || "";
+      F.symbol.value = project.symbol || "";
+      F.category.value = project.category || "";
+      F.year.value = project.year || new Date().getFullYear();
+      F.tagline.value = project.tagline || "";
+      F.blurb.value = project.blurb || "";
+      F.url.value = project.url || "";
+      F.stack.value = (project.stack || []).join(", ");
+      F.tags.value = (project.tags || []).join(", ");
+      F.sort.value = project.sortOrder !== undefined ? project.sortOrder : 0;
+      F.published.checked = project.published !== false;
+      F.featured.checked = Boolean(project.featured);
+
+      state.imageUrl = project.image || null;
+      renderPreview();
+
+      const saved = Boolean(project.slug);
+      el.unpublish.classList.toggle("hidden", !saved || !canWrite());
+      el.destroy.classList.toggle("hidden", !saved || !canWrite());
+      setFormDisabled(!canWrite());
+    }
+
+    function setFormDisabled(disabled) {
+      Object.values(F).forEach((input) => { input.disabled = disabled; });
+      el.drop.style.pointerEvents = disabled ? "none" : "";
+      el.drop.style.opacity = disabled ? "0.6" : "";
+    }
+
+    function updateCategoryOptions() {
+      el.categoryList.innerHTML = [...new Set(state.projects.map((p) => p.category))]
+        .filter(Boolean)
+        .map((category) => '<option value="' + escapeHtml(category) + '"></option>')
+        .join("");
+    }
+
+    function renderPreview() {
+      const src = safeImage(state.imageUrl);
+      el.dropPreview.innerHTML = src
+        ? '<img src="' + escapeHtml(src) + '" alt="" />'
+        : '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-image"/></svg>';
+      el.dropText.textContent = state.imageUrl || "PNG, JPEG, or WebP. Max 5MB.";
+      el.imageHint.textContent = state.imageUrl ? "" : "No image yet. The card falls back to the symbol tile.";
+    }
+
+    function startNew() {
+      state.current = null;
+      fill({
+        title: "", symbol: "", category: "", year: new Date().getFullYear(),
+        tagline: "", blurb: "", url: "", stack: [], tags: [], sortOrder: 0,
+        published: true, featured: false, image: null, slug: ""
+      });
+      el.heading.textContent = "New project";
+      el.slug.textContent = "a slug will be generated from the title";
+      el.status.textContent = "NEW";
+      el.status.className = "pill";
+      el.unpublish.classList.add("hidden");
+      el.destroy.classList.add("hidden");
+      renderList();
+      F.title.focus();
+    }
+
+    el.newProject.addEventListener("click", startNew);
+
+    function collect() {
+      const toList = (value) => String(value || "").split(",").map((s) => s.trim()).filter(Boolean);
+      return {
+        title: F.title.value.trim(),
+        symbol: F.symbol.value.trim().toUpperCase(),
+        category: F.category.value.trim(),
+        year: Number.parseInt(F.year.value, 10),
+        tagline: F.tagline.value.trim(),
+        blurb: F.blurb.value.trim(),
+        image_url: state.imageUrl,
+        url: F.url.value.trim(),
+        stack: toList(F.stack.value),
+        tags: toList(F.tags.value),
+        sort_order: Number.parseInt(F.sort.value, 10) || 0,
+        published: F.published.checked,
+        featured: F.featured.checked
+      };
+    }
+
+    el.editor.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!canWrite()) return;
+      const payload = collect();
+      if (!payload.title || !payload.symbol || !payload.category || !payload.blurb) {
+        toast("Title, symbol, category, and description are required.", "err", "Missing fields");
+        return;
+      }
+      busy(el.save, true, "Saving…");
+      try {
+        if (state.current?.slug) {
+          const data = await api("/api/admin/projects/" + encodeURIComponent(state.current.slug), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          state.current = data.project;
+          toast("Saved. Live on the site within ~30 seconds.", "ok", "Project saved");
+        } else {
+          const data = await api("/api/admin/projects", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ credential: response.credential })
+            body: JSON.stringify(payload)
           });
-          showConsole(result.email);
-          toast("Signed in as " + result.email, "ok");
-        } catch (err) {
-          els.note.textContent = err.message;
-          toast(err.message, "err");
+          state.current = data.project;
+          toast("Created " + data.project.slug + ".", "ok", "Project created");
         }
+        await loadProjects();
+        fill(state.current);
+        refreshIfLoaded();
+      } catch (err) {
+        toast(err.message, "err", "Save failed");
+      } finally {
+        busy(el.save, false);
       }
+    });
 
-      els.logout.addEventListener("click", async () => {
-        try { await api("/api/auth/logout", { method: "POST" }); } catch (_) {}
-        location.reload();
+    el.reset.addEventListener("click", () => {
+      if (state.current) fill(state.current);
+      else startNew();
+      toast("Form reverted to the saved values.", "info", "Reverted");
+    });
+
+    el.unpublish.addEventListener("click", async () => {
+      if (!state.current?.slug) return;
+      const ok = await confirmAction({
+        title: "Unpublish " + state.current.title + "?",
+        body: "It disappears from the public site but stays in the database. Tick Published and save to bring it back.",
+        confirm: "Unpublish"
       });
+      if (!ok) return;
+      try {
+        await api("/api/admin/projects/" + encodeURIComponent(state.current.slug), { method: "DELETE" });
+        toast("Unpublished.", "ok");
+        await loadProjects();
+        selectProject(state.current.slug);
+        refreshIfLoaded();
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    });
 
-      // Return trip: hand the home page its own re-entry wipe on the way out.
-      $("view-site")?.addEventListener("click", () => {
-        try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
+    el.destroy.addEventListener("click", async () => {
+      if (!state.current?.slug) return;
+      const ok = await confirmAction({
+        title: "Delete " + state.current.title + " for good?",
+        body: "The database row is removed permanently. This one cannot be undone.",
+        confirm: "Delete permanently",
+        danger: true
       });
-
-      function showConsole(email) {
-        els.gate.classList.add("hidden");
-        els.console.classList.remove("hidden");
-        els.logout.classList.remove("hidden");
-        els.user.textContent = email;
-        loadProjects();
+      if (!ok) return;
+      try {
+        await api("/api/admin/projects/" + encodeURIComponent(state.current.slug) + "?hard=1", { method: "DELETE" });
+        toast("Deleted " + state.current.title + ".", "ok");
+        state.current = null;
+        el.editor.classList.add("hidden");
+        el.editorEmpty.classList.remove("hidden");
+        await loadProjects();
+        refreshIfLoaded();
+      } catch (err) {
+        toast(err.message, "err");
       }
+    });
 
-      /* ---------- list ---------- */
-      async function loadProjects() {
-        try {
-          const data = await api("/api/admin/projects");
-          projects = data.projects || [];
-          renderList();
-        } catch (err) {
-          toast("Could not load projects: " + err.message, "err");
-        }
-      }
+    /* ---------- image upload ---------- */
 
-      function renderList() {
-        els.listCount.textContent = String(projects.length);
-        if (!projects.length) {
-          els.list.innerHTML = '<p class="list-empty">No projects yet. Create one to get started.</p>';
-          return;
-        }
-        els.list.innerHTML = projects.map((p) => {
-          const pills = [
-            p.published ? '<span class="pill on">Live</span>' : '<span class="pill draft">Draft</span>',
-            p.featured ? '<span class="pill feat">Feat</span>' : ""
-          ].join("");
-          const active = current && current.slug === p.slug ? " is-active" : "";
-          return `
-            <div class="row${active}" data-slug="${escapeHtml(p.slug)}" role="button" tabindex="0">
-              <div class="row-sym">${escapeHtml(p.symbol)}</div>
-              <div class="row-main">
-                <div class="row-title">${escapeHtml(p.title)}</div>
-                <div class="row-sub">${escapeHtml(p.category)} · ${escapeHtml(p.year)}</div>
-              </div>
-              <div style="display:flex; gap:5px; flex:none;">${pills}</div>
-            </div>`;
-        }).join("");
-      }
-
-      els.list.addEventListener("click", (event) => {
-        const row = event.target.closest("[data-slug]");
-        if (!row) return;
-        selectProject(row.dataset.slug);
-      });
-      els.list.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const row = event.target.closest("[data-slug]");
-        if (!row) return;
+    el.drop.addEventListener("click", (event) => {
+      if (!canWrite()) return;
+      // The synthetic click from fileInput.click() bubbles back up to here.
+      if (event.target === el.fileInput) return;
+      el.fileInput.click();
+    });
+    el.drop.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        selectProject(row.dataset.slug);
-      });
-
-      /* ---------- editor ---------- */
-      function selectProject(slug) {
-        const project = projects.find((p) => p.slug === slug);
-        if (!project) return;
-        current = project;
-        fill(project);
-        renderList();
+        el.fileInput.click();
       }
+    });
+    el.fileInput.addEventListener("change", () => {
+      if (el.fileInput.files?.[0]) upload(el.fileInput.files[0]);
+    });
+    ["dragenter", "dragover"].forEach((type) => {
+      el.drop.addEventListener(type, (event) => {
+        event.preventDefault();
+        el.drop.classList.add("is-over");
+      });
+    });
+    ["dragleave", "drop"].forEach((type) => {
+      el.drop.addEventListener(type, (event) => {
+        event.preventDefault();
+        el.drop.classList.remove("is-over");
+      });
+    });
+    el.drop.addEventListener("drop", (event) => {
+      const file = event.dataTransfer?.files?.[0];
+      if (file) upload(file);
+    });
 
-      function fill(project) {
-        els.editorEmpty.classList.add("hidden");
-        els.editor.classList.remove("hidden");
-        els.heading.textContent = project.title || "New project";
-        els.slug.textContent = project.slug ? "slug: " + project.slug : "a slug will be generated from the title";
-        els.status.textContent = project.published ? "LIVE" : "DRAFT";
-        els.status.className = "pill " + (project.published ? "on" : "draft");
-
-        F.title.value = project.title || "";
-        F.symbol.value = project.symbol || "";
-        F.category.value = project.category || "";
-        F.year.value = project.year || new Date().getFullYear();
-        F.tagline.value = project.tagline || "";
-        F.blurb.value = project.blurb || "";
-        F.url.value = project.url || "";
-        F.stack.value = (project.stack || []).join(", ");
-        F.tags.value = (project.tags || []).join(", ");
-        F.sort.value = project.sortOrder !== undefined ? project.sortOrder : 0;
-        F.published.checked = project.published !== false;
-        F.featured.checked = Boolean(project.featured);
-
-        imageUrl = project.image || null;
+    async function upload(file) {
+      if (!canWrite()) return;
+      const body = new FormData();
+      body.append("file", file);
+      el.dropText.textContent = "Uploading " + file.name + "…";
+      try {
+        const data = await api("/api/admin/upload", { method: "POST", body });
+        state.imageUrl = data.url;
         renderPreview();
+        toast("Uploaded " + U.formatBytes(data.bytes) + ". Save to apply.", "ok", "Image ready");
+        refreshIfLoaded();
+      } catch (err) {
+        el.dropText.textContent = "PNG, JPEG, or WebP. Max 5MB.";
+        toast(err.message, "err", "Upload failed");
+      } finally {
+        el.fileInput.value = "";
+      }
+    }
 
-        // destructive buttons only make sense on a saved project
-        els.unpublish.classList.toggle("hidden", !project.slug);
-        els.destroy.classList.toggle("hidden", !project.slug);
-        updateCategoryOptions();
+    /* ================= admins ================= */
+
+    const ROLE_BLURB = {
+      owner: "Full access, manages the roster",
+      admin: "Manages projects and sessions",
+      viewer: "Read-only"
+    };
+
+    async function loadAdmins() {
+      if (!isOwner()) {
+        el.adminsWrap.classList.add("hidden");
+        el.adminsDenied.classList.remove("hidden");
+        el.adminsDeniedText.textContent =
+          "Managing access needs the owner role. You are signed in as " + U.roleLabel(state.viewer?.role) + ".";
+        state.loaded.admins = true;
+        return;
+      }
+      el.adminsWrap.classList.remove("hidden");
+      el.adminsDenied.classList.add("hidden");
+      el.adminsBody.classList.add("is-loading");
+      el.adminsBody.innerHTML = "";
+
+      try {
+        const data = await api("/api/admin/members");
+        state.admins.list = data.admins || [];
+        state.admins.counts = data.counts || {};
+        el.inviteOpen.classList.remove("hidden");
+        renderAdmins();
+        state.loaded.admins = true;
+        setBadge("badge-admins", state.admins.list.length);
+      } catch (err) {
+        el.adminsBody.classList.remove("is-loading");
+        el.adminsBody.innerHTML = '<tr><td colspan="6" class="pad-note">' + escapeHtml(err.message) + "</td></tr>";
+      }
+    }
+
+    function renderAdmins() {
+      const { list, counts } = state.admins;
+      el.adminsCount.textContent = String(list.length);
+      el.adminsBody.classList.remove("is-loading");
+
+      el.adminsTiles.innerHTML = [
+        tile({ icon: "#i-users", label: "Total access", value: counts.total || 0, foot: (counts.suspended || 0) + " suspended" }),
+        tile({ icon: U.roleIcon("owner"), label: "Owners", value: counts.owners || 0, foot: "Can manage the roster" }),
+        tile({ icon: U.roleIcon("admin"), label: "Admins", value: counts.admins || 0, foot: "Projects and sessions" }),
+        tile({ icon: "#i-clock", label: "Active sessions", value: counts.activeSessions || 0, foot: (counts.signedInThisWeek || 0) + " signed in this week" })
+      ].join("");
+
+      if (!list.length) {
+        el.adminsBody.innerHTML = '<tr><td colspan="6" class="pad-note">Nobody has access yet.</td></tr>';
+        return;
       }
 
-      function updateCategoryOptions() {
-        els.categoryList.innerHTML = Array.from(new Set(projects.map((p) => p.category)))
-          .filter(Boolean)
-          .map((c) => `<option value="${escapeHtml(c)}"></option>`)
-          .join("");
+      el.adminsBody.innerHTML = list.map((admin, index) => {
+        const self = admin.email === state.viewer?.email;
+        const initials = U.initials(admin.name || admin.email);
+        const statusPill = admin.status === "suspended"
+          ? '<span class="pill suspended">Suspended</span>'
+          : '<span class="pill on">Active</span>';
+        return (
+          '<tr style="animation-delay:' + Math.min(index * 26, 320) + 'ms">' +
+          '<td><div class="cell-main"><span class="avatar">' +
+          (admin.picture ? '<img src="' + escapeHtml(U.safeUrl(admin.picture)) + '" alt="" />' : escapeHtml(initials)) +
+          '</span><div class="cell-text"><div class="cell-title">' + escapeHtml(admin.name || admin.email.split("@")[0]) +
+          (self ? ' <span class="pill">you</span>' : "") + "</div>" +
+          '<div class="cell-sub">' + escapeHtml(admin.email) + "</div></div></div></td>" +
+          '<td><span class="pill ' + escapeHtml(admin.role) + '">' + escapeHtml(U.roleLabel(admin.role)) + "</span></td>" +
+          "<td>" + statusPill + "</td>" +
+          '<td class="num">' + escapeHtml(admin.lastSeen ? U.relativeTime(admin.lastSeen) : "never") +
+          (admin.loginCount ? " · " + admin.loginCount + " sign-ins" : "") + "</td>" +
+          '<td class="num">' + (admin.activeSessions || 0) + "</td>" +
+          '<td><div class="row-actions">' +
+          (admin.locked
+            ? '<span class="pill locked">ADMIN_EMAILS</span>'
+            : self
+              ? '<span class="cell-sub">your account</span>'
+              : canWrite()
+                ? '<button class="ghost tiny" data-manage="' + escapeHtml(admin.email) + '" type="button">Manage</button>'
+                : "") +
+          "</div></td></tr>"
+        );
+      }).join("");
+    }
+
+    el.adminsBody.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-manage]");
+      if (button) openAdminSheet(button.dataset.manage);
+    });
+
+    function openAdminSheet(email) {
+      const admin = email ? state.admins.list.find((entry) => entry.email === email) : null;
+      state.adminEditing = admin;
+      el.adminSheetTitle.textContent = admin ? "Manage access" : "Add an admin";
+      el.adminEmailField.classList.toggle("hidden", Boolean(admin));
+      el.adminEmail.value = admin ? admin.email : "";
+      el.adminEmail.disabled = Boolean(admin);
+      el.adminRole.value = admin?.role || "admin";
+      el.adminNote.value = admin?.note || "";
+      el.adminRemove.classList.toggle("hidden", !admin || admin.locked);
+      el.adminSave.querySelector(".btn-label").textContent = admin
+        ? admin.status === "suspended" ? "Reactivate" : "Save changes"
+        : "Grant access";
+      // A suspended admin is reactivated by saving; the role select still applies.
+      el.adminSheetWarn.classList.toggle("hidden", !admin);
+      el.adminSheet.showModal();
+    }
+
+    el.inviteOpen.addEventListener("click", () => openAdminSheet(null));
+
+    el.adminForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const editing = state.adminEditing;
+      const email = editing ? editing.email : el.adminEmail.value.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
+        toast("That does not look like an email address.", "err", "Check the address");
+        return;
+      }
+      busy(el.adminSave, true, "Saving…");
+      try {
+        if (editing) {
+          await api("/api/admin/members/" + encodeURIComponent(email), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: el.adminRole.value,
+              status: "active",
+              note: el.adminNote.value.trim()
+            })
+          });
+          toast(email + " is now " + U.roleLabel(el.adminRole.value).toLowerCase() + ".", "ok", "Access updated");
+        } else {
+          await api("/api/admin/members", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, role: el.adminRole.value, note: el.adminNote.value.trim() })
+          });
+          toast(email + " can now sign in.", "ok", "Access granted");
+        }
+        el.adminSheet.close();
+        await loadAdmins();
+        refreshIfLoaded();
+      } catch (err) {
+        toast(err.message, "err", "Could not save");
+      } finally {
+        busy(el.adminSave, false);
+      }
+    });
+
+    el.adminRemove.addEventListener("click", async () => {
+      const editing = state.adminEditing;
+      if (!editing) return;
+      el.adminSheet.close();
+      const ok = await confirmAction({
+        title: "Remove " + editing.email + "?",
+        body: "They lose console access immediately and every live session of theirs is signed out. The audit log keeps the record.",
+        confirm: "Remove access",
+        danger: true
+      });
+      if (!ok) return;
+      try {
+        await api("/api/admin/members/" + encodeURIComponent(editing.email), { method: "DELETE" });
+        toast(editing.email + " removed.", "ok");
+        await loadAdmins();
+        refreshIfLoaded();
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    });
+
+    /* ================= audit ================= */
+
+    function auditFilters() {
+      return {
+        limit: state.audit.limit,
+        offset: state.audit.offset,
+        actor: el.auditActor.value,
+        action: el.auditAction.value,
+        status: el.auditStatus.value,
+        since: el.auditSince.value,
+        until: el.auditUntil.value,
+        q: el.auditSearch.value.trim()
+      };
+    }
+
+    async function loadAudit({ reset = false } = {}) {
+      if (reset) state.audit.offset = 0;
+      if (state.audit.loading) return;
+      state.audit.loading = true;
+      busy(el.auditMore, true, "Loading…");
+
+      if (reset) {
+        el.auditBody.classList.add("is-loading");
+        el.auditBody.innerHTML = "";
       }
 
-      function renderPreview() {
-        const src = safeImage(imageUrl);
-        els.dropPreview.innerHTML = src
-          ? `<img src="${escapeHtml(src)}" alt="" />`
-          : "<span>--</span>";
-        els.dropText.textContent = imageUrl || "PNG, JPEG, or WebP. Max 5MB.";
-        els.imageHint.textContent = imageUrl ? "" : "No image yet. The card falls back to the symbol tile.";
+      try {
+        const data = await api("/api/admin/audit" + U.buildQuery(auditFilters()));
+        state.audit.events = reset ? data.events : state.audit.events.concat(data.events);
+        state.audit.total = data.total;
+        state.audit.offset = state.audit.events.length;
+        state.audit.sessions = data.sessions || [];
+        renderAudit();
+        state.loaded.audit = true;
+        setBadge("badge-audit", data.total);
+      } catch (err) {
+        el.auditBody.classList.remove("is-loading");
+        el.auditBody.innerHTML = '<tr><td colspan="7" class="pad-note">' + escapeHtml(err.message) + "</td></tr>";
+      } finally {
+        state.audit.loading = false;
+        busy(el.auditMore, false);
+      }
+    }
+
+    function renderAudit() {
+      const { events, total } = state.audit;
+      el.auditCount.textContent = total;
+      el.auditBody.classList.remove("is-loading");
+      el.auditRange.textContent = events.length
+        ? "Showing " + events.length + " of " + total
+        : "";
+      el.auditMore.classList.toggle("hidden", events.length >= total);
+
+      if (!events.length) {
+        el.auditBody.innerHTML =
+          '<tr><td colspan="7" class="pad-note">' +
+          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>' +
+          "<div>No events match those filters.</div></td></tr>";
+        return;
       }
 
-      function startNew() {
-        current = null;
-        fill({
-          title: "", symbol: "", category: "", year: new Date().getFullYear(),
-          tagline: "", blurb: "", url: "", stack: [], tags: [], sortOrder: 0,
-          published: true, featured: false, image: null, slug: ""
+      el.auditBody.innerHTML = events.map((event, index) =>
+        '<tr class="clickable" data-open="' + event.id + '" style="animation-delay:' + Math.min(index * 18, 260) + 'ms">' +
+        '<td class="when"><div class="cell-title">' + escapeHtml(U.relativeTime(event.at)) + "</div>" +
+        '<div class="cell-sub">' + escapeHtml(U.absoluteTime(event.at)) + "</div></td>" +
+        '<td><div class="cell-main"><span class="dot ' + escapeHtml(event.status) + '"></span>' +
+        '<div class="cell-text"><div class="cell-title">' + escapeHtml(event.actor) + "</div>" +
+        '<div class="cell-sub">' + escapeHtml(U.roleLabel(event.role) || "—") + "</div></div></div></td>" +
+        '<td class="num">' + escapeHtml(U.actionLabel(event.action)) + "</td>" +
+        '<td><div class="cell-text"><div class="cell-title">' + escapeHtml(event.summary || "—") + "</div>" +
+        (event.entityId ? '<div class="cell-sub">' + escapeHtml(event.entity + " · " + event.entityId) + "</div>" : "") +
+        "</div></td>" +
+        '<td class="num">' + escapeHtml(event.device || "—") + "</td>" +
+        '<td class="num">' + escapeHtml([event.city, event.country].filter(Boolean).join(" · ") || "—") +
+        (event.network ? '<div class="cell-sub">net ' + escapeHtml(event.network.slice(0, 6)) + "</div>" : "") + "</td>" +
+        '<td><div class="row-actions"><button class="ghost tiny" data-open="' + event.id + '" type="button">View</button></div></td>' +
+        "</tr>"
+      ).join("");
+    }
+
+    el.auditBody.addEventListener("click", (event) => {
+      const cell = event.target.closest("[data-open]");
+      if (!cell) return;
+      const found = state.audit.events.find((entry) => String(entry.id) === cell.dataset.open);
+      if (found) showEvent(found);
+    });
+
+    let auditDebounce = null;
+    ["input", "change"].forEach((type) => {
+      [el.auditSearch, el.auditAction, el.auditActor, el.auditStatus, el.auditSince, el.auditUntil].forEach((node) => {
+        node.addEventListener(type, () => {
+          clearTimeout(auditDebounce);
+          auditDebounce = setTimeout(() => loadAudit({ reset: true }), type === "input" ? 320 : 0);
         });
-        els.heading.textContent = "New project";
-        els.slug.textContent = "a slug will be generated from the title";
-        els.status.textContent = "NEW";
-        els.status.className = "pill";
-        els.unpublish.classList.add("hidden");
-        els.destroy.classList.add("hidden");
-        renderList();
+      });
+    });
+
+    el.auditClear.addEventListener("click", () => {
+      el.auditSearch.value = "";
+      el.auditAction.value = "";
+      el.auditActor.value = "";
+      el.auditStatus.value = "";
+      el.auditSince.value = "";
+      el.auditUntil.value = "";
+      loadAudit({ reset: true });
+    });
+
+    el.auditMore.addEventListener("click", () => loadAudit());
+
+    el.auditExport.addEventListener("click", () => {
+      const query = U.buildQuery({ ...auditFilters(), limit: "", offset: "", format: "csv" });
+      window.location.href = "/api/admin/audit" + query;
+      toast("Export started. Check your downloads.", "info", "CSV");
+    });
+
+    function showEvent(event) {
+      el.detailTitle.textContent = U.actionLabel(event.action);
+      const rows = [
+        ["When", U.absoluteTime(event.at) + "  (" + U.relativeTime(event.at) + ")"],
+        ["Operator", event.actor + (event.role ? " · " + U.roleLabel(event.role) : "")],
+        ["Outcome", event.status],
+        ["Record", event.entity ? event.entity + " · " + (event.entityId || "—") : "—"],
+        ["Device", (event.device || "Unknown") + (event.os ? " · " + event.os : "")],
+        ["Network", event.network ? "hash " + event.network : "—"],
+        ["Location", [event.city, event.country].filter(Boolean).join(", ") || "—"],
+        ["Request", (event.method || "") + " " + (event.path || "")],
+        ["User agent", event.userAgent || "—"]
+      ];
+
+      const diffs = event.details?.changes;
+      el.detailBody.innerHTML =
+        '<div class="dl">' +
+        rows.map(([key, value]) =>
+          '<div class="dl-row"><dt>' + escapeHtml(key) + '</dt><dd class="mono">' + escapeHtml(value) + "</dd></div>"
+        ).join("") +
+        "</div>" +
+        (Array.isArray(diffs) && diffs.length
+          ? '<div style="margin-top:18px"><span class="label">Changes</span><div class="diff">' +
+            diffs.map((change) =>
+              '<div class="diff-row"><span class="diff-field">' + escapeHtml(change.field) + "</span>" +
+              '<span class="diff-vals"><span class="diff-from">' + escapeHtml(change.from ?? "—") + "</span>" +
+              '<span class="arrow">→</span><span class="diff-to">' + escapeHtml(change.to ?? "—") + "</span></span></div>"
+            ).join("") +
+            "</div></div>"
+          : "") +
+        (event.details && !Array.isArray(diffs)
+          ? '<div style="margin-top:18px"><span class="label">Details</span><pre class="mono" style="margin-top:8px;font-size:11px;color:var(--ink-soft);white-space:pre-wrap;word-break:break-word">' +
+            escapeHtml(JSON.stringify(event.details, null, 2)) + "</pre></div>"
+          : "");
+
+      el.detailSheet.showModal();
+    }
+
+    /* ================= confirm + sheet plumbing ================= */
+
+    let confirmResolve = null;
+
+    function confirmAction({ title, body, confirm, danger }) {
+      el.confirmTitle.textContent = title;
+      el.confirmBody.innerHTML = '<p style="font-size:13.5px;color:var(--ink-soft)">' + escapeHtml(body) + "</p>";
+      el.confirmGo.textContent = confirm || "Confirm";
+      el.confirmGo.className = danger ? "danger" : "primary";
+      el.confirmIcon.style.color = danger ? "var(--danger)" : "var(--warn)";
+      el.confirmIcon.querySelector("use").setAttribute("href", danger ? "#i-alert" : "#i-info");
+      el.confirmSheet.showModal();
+      return new Promise((resolve) => { confirmResolve = resolve; });
+    }
+
+    el.confirmGo.addEventListener("click", () => {
+      el.confirmSheet.close("go");
+    });
+    el.confirmSheet.addEventListener("close", () => {
+      const resolve = confirmResolve;
+      confirmResolve = null;
+      if (resolve) resolve(el.confirmSheet.returnValue === "go");
+    });
+
+    document.querySelectorAll("dialog [data-close]").forEach((button) => {
+      button.addEventListener("click", () => button.closest("dialog").close("cancel"));
+    });
+    // Click-outside to dismiss, by geometry: the sheet frame sits inside the
+    // dialog, so anything outside its rect is the backdrop. A bubbled-click
+    // check would close the sheet on the Save button.
+    [el.detailSheet, el.adminSheet, el.confirmSheet].forEach((sheet) => {
+      const frame = sheet.querySelector(".sheet");
+      sheet.addEventListener("mousedown", (event) => {
+        const rect = frame.getBoundingClientRect();
+        const outside =
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom;
+        if (outside) sheet.close("cancel");
+      });
+    });
+
+    /* ================= boot ================= */
+
+    function refreshIfLoaded() {
+      loadOverview();
+      if (state.loaded.admins) loadAdmins();
+      if (state.loaded.audit) loadAudit({ reset: true });
+    }
+
+    /* ---------- neural backdrop ---------- */
+    (function neural() {
+      const canvas = $("neural-canvas");
+      if (!canvas) return;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      let nodes = [];
+      let w = 0, h = 0, raf = 0, dpr = 1;
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        w = canvas.width = Math.floor(window.innerWidth * dpr);
+        h = canvas.height = Math.floor(window.innerHeight * dpr);
+        const area = window.innerWidth * window.innerHeight;
+        // Denser than the marketing site: this is the whole background, not a
+        // garnish behind a hero.
+        const count = Math.max(26, Math.min(110, Math.floor(area / 15000)));
+        nodes = Array.from({ length: count }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.34 * dpr,
+          vy: (Math.random() - 0.5) * 0.34 * dpr,
+          r: (Math.random() * 1.7 + 0.8) * dpr,
+          // A few brighter hubs, so the mesh has a focal structure.
+          hub: Math.random() < 0.12,
+          phase: Math.random() * Math.PI * 2
+        }));
       }
 
-      els.newProject.addEventListener("click", startNew);
-
-      function collect() {
-        const toList = (value) => String(value || "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        return {
-          title: F.title.value.trim(),
-          symbol: F.symbol.value.trim().toUpperCase(),
-          category: F.category.value.trim(),
-          year: Number.parseInt(F.year.value, 10),
-          tagline: F.tagline.value.trim(),
-          blurb: F.blurb.value.trim(),
-          image_url: imageUrl,
-          url: F.url.value.trim(),
-          stack: toList(F.stack.value),
-          tags: toList(F.tags.value),
-          sort_order: Number.parseInt(F.sort.value, 10) || 0,
-          published: F.published.checked,
-          featured: F.featured.checked
-        };
+      function colors() {
+        const dark = document.documentElement.getAttribute("data-theme") === "dark";
+        return dark
+          ? {
+              node: "rgba(26,163,255,0.85)",
+              hub: "rgba(125,217,255,0.95)",
+              line: "rgba(23,120,214,0.34)",
+              hubLine: "rgba(125,217,255,0.42)"
+            }
+          : {
+              node: "rgba(13,111,212,0.7)",
+              hub: "rgba(7,74,150,0.8)",
+              line: "rgba(7,74,150,0.22)",
+              hubLine: "rgba(13,111,212,0.3)"
+            };
       }
 
-      els.editor.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const payload = collect();
-        if (!payload.title || !payload.symbol || !payload.category || !payload.blurb) {
-          toast("Title, symbol, category, and description are required.", "err");
-          return;
-        }
-        busy(true);
-        try {
-          if (current && current.slug) {
-            const data = await api("/api/admin/projects/" + encodeURIComponent(current.slug), {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
-            current = data.project;
-            toast("Saved. Live on the site within ~30 seconds.", "ok");
-          } else {
-            const data = await api("/api/admin/projects", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
-            current = data.project;
-            toast("Created " + data.project.slug + ".", "ok");
+      function draw(time) {
+        const c = colors();
+        const reach = 152 * dpr;
+        ctx.clearRect(0, 0, w, h);
+        const pulse = reduce ? 1 : 0.72 + 0.28 * Math.sin(time / 900);
+
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          a.x += a.vx; a.y += a.vy;
+          if (a.x < 0 || a.x > w) a.vx *= -1;
+          if (a.y < 0 || a.y > h) a.vy *= -1;
+
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            const dist = Math.hypot(a.x - b.x, a.y - b.y);
+            if (dist >= reach) continue;
+            ctx.strokeStyle = a.hub || b.hub ? c.hubLine : c.line;
+            ctx.globalAlpha = 1 - dist / reach;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
           }
-          await loadProjects();
-          fill(current);
-        } catch (err) {
-          toast(err.message, "err");
-        } finally {
-          busy(false);
-        }
-      });
 
-      els.reset.addEventListener("click", () => {
-        if (current) fill(current);
-        else startNew();
-      });
-
-      els.unpublish.addEventListener("click", async () => {
-        if (!current || !current.slug) return;
-        if (!confirm("Unpublish " + current.title + "? It will disappear from the public site but stay in the database.")) return;
-        try {
-          await api("/api/admin/projects/" + encodeURIComponent(current.slug), { method: "DELETE" });
-          toast("Unpublished. Restore it by ticking Published and saving.", "ok");
-          await loadProjects();
-          selectProject(current.slug);
-        } catch (err) {
-          toast(err.message, "err");
-        }
-      });
-
-      els.destroy.addEventListener("click", async () => {
-        if (!current || !current.slug) return;
-        if (!confirm("Permanently delete " + current.title + "? This cannot be undone.")) return;
-        if (!confirm("Really delete? The database row is removed for good.")) return;
-        try {
-          await api("/api/admin/projects/" + encodeURIComponent(current.slug) + "?hard=1", { method: "DELETE" });
-          toast("Deleted " + current.title + ".", "ok");
-          current = null;
-          els.editor.classList.add("hidden");
-          els.editorEmpty.classList.remove("hidden");
-          await loadProjects();
-        } catch (err) {
-          toast(err.message, "err");
-        }
-      });
-
-      /* ---------- image upload ---------- */
-      els.drop.addEventListener("click", (event) => {
-        // The synthetic click from fileInput.click() bubbles back up to here.
-        // Without this guard the handler re-enters itself.
-        if (event.target === els.fileInput) return;
-        els.fileInput.click();
-      });
-      els.fileInput.addEventListener("change", () => {
-        if (els.fileInput.files && els.fileInput.files[0]) upload(els.fileInput.files[0]);
-      });
-      ["dragenter", "dragover"].forEach((type) => {
-        els.drop.addEventListener(type, (e) => { e.preventDefault(); els.drop.classList.add("is-over"); });
-      });
-      ["dragleave", "drop"].forEach((type) => {
-        els.drop.addEventListener(type, (e) => { e.preventDefault(); els.drop.classList.remove("is-over"); });
-      });
-      els.drop.addEventListener("drop", (event) => {
-        const file = event.dataTransfer?.files?.[0];
-        if (file) upload(file);
-      });
-
-      async function upload(file) {
-        const body = new FormData();
-        body.append("file", file);
-        els.dropText.textContent = "Uploading " + file.name + "…";
-        try {
-          const data = await api("/api/admin/upload", { method: "POST", body });
-          imageUrl = data.url;
-          renderPreview();
-          toast("Image uploaded (" + Math.round(data.bytes / 1024) + "KB). Save to apply.", "ok");
-        } catch (err) {
-          els.dropText.textContent = "PNG, JPEG, or WebP. Max 5MB.";
-          toast(err.message, "err");
-        } finally {
-          els.fileInput.value = "";
-        }
-      }
-
-      /* ---------- boot ---------- */
-      // Uplink wipe, played once if we arrived from the site header.
-      if (document.documentElement.classList.contains("from-core")) {
-        try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
-        const docEl = document.documentElement;
-        const status = $("console-enter-status");
-        const lines = [
-          ["// ADMIN_UPLINK", "opening secure channel"],
-          ["// AUTH_HANDSHAKE", "verifying operator identity"],
-          ["// CONSOLE_READY", "sign in to continue"]
-        ];
-        let index = 0;
-        const paint = () => {
-          const [title, sub] = lines[index];
-          if (status) status.innerHTML = `${title}<em>${sub}</em>`;
-        };
-        paint();
-        requestAnimationFrame(() => docEl.classList.add("enter-play"));
-        const ticker = setInterval(() => {
-          index = Math.min(index + 1, lines.length - 1);
-          paint();
-          if (index === lines.length - 1) clearInterval(ticker);
-        }, 280);
-        window.setTimeout(() => {
-          docEl.classList.add("enter-done");
-          document.body.style.overflow = "";
-          window.setTimeout(() => {
-            docEl.classList.remove("from-core", "enter-play", "enter-done");
-            $("console-enter")?.remove();
-          }, 450);
-        }, 1100);
-      }
-
-      (async function boot() {
-        try {
-          const session = await api("/api/auth/me");
-          if (session.authenticated) {
-            showConsole(session.email);
-            return;
+          ctx.globalAlpha = 1;
+          if (a.hub) {
+            // Hubs breathe, which keeps a still background from looking dead.
+            const beat = reduce ? 1 : 0.72 + 0.28 * Math.sin(time / 900 + a.phase);
+            const halo = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.r * 9);
+            halo.addColorStop(0, c.hub);
+            halo.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.globalAlpha = 0.5 * beat * pulse;
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(a.x, a.y, a.r * 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
           }
-        } catch (_) { /* fall through to the gate */ }
 
-        const clientId = await loadConfig();
-        if (!clientId) return;
-        if (window.google && window.google.accounts) renderGoogleButton(clientId);
-        else window.addEventListener("load", () => renderGoogleButton(clientId));
-      })();
+          ctx.fillStyle = a.hub ? c.hub : c.node;
+          ctx.beginPath();
+          ctx.rect(a.x - a.r / 2, a.y - a.r / 2, a.r, a.r);
+          ctx.fill();
+        }
+
+        // Reduced motion gets exactly one painted frame.
+        if (!reduce) raf = requestAnimationFrame(draw);
+      }
+
+      resize();
+      draw(0);
+      window.addEventListener("resize", resize);
+      // Stop burning cycles when the tab is hidden.
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) cancelAnimationFrame(raf);
+        else if (!reduce) raf = requestAnimationFrame(draw);
+      });
     })();
-  </script>
+
+    /* ---------- gate clock ---------- */
+    (function clock() {
+      const tick = () => {
+        try {
+          el.clock.textContent = new Intl.DateTimeFormat("en-GB", {
+            hour: "2-digit", minute: "2-digit", second: "2-digit",
+            timeZone: "Asia/Kuala_Lumpur", hour12: false
+          }).format(new Date()) + " MYT";
+        } catch (_) {
+          el.clock.textContent = new Date().toLocaleTimeString();
+        }
+      };
+      tick();
+      setInterval(tick, 1000);
+    })();
+
+    /* ---------- uplink wipe ---------- */
+    if (document.documentElement.classList.contains("from-core")) {
+      try { sessionStorage.removeItem("lumina-enter"); } catch (_) {}
+      const docEl = document.documentElement;
+      const status = $("console-enter-status");
+      const lines = [
+        ["// ADMIN_UPLINK", "opening secure channel"],
+        ["// AUTH_HANDSHAKE", "verifying operator identity"],
+        ["// CONSOLE_READY", "sign in to continue"]
+      ];
+      let index = 0;
+      const paint = () => {
+        const [title, sub] = lines[index];
+        if (status) status.innerHTML = title + "<em>" + sub + "</em>";
+      };
+      paint();
+      requestAnimationFrame(() => docEl.classList.add("enter-play"));
+      const ticker = setInterval(() => {
+        index = Math.min(index + 1, lines.length - 1);
+        paint();
+        if (index === lines.length - 1) clearInterval(ticker);
+      }, 280);
+      window.setTimeout(() => {
+        docEl.classList.add("enter-done");
+        document.body.style.overflow = "";
+        window.setTimeout(() => {
+          docEl.classList.remove("from-core", "enter-play", "enter-done");
+          $("console-enter")?.remove();
+        }, 450);
+      }, 1100);
+    }
+
+    (async function boot() {
+      const startingTheme = document.documentElement.getAttribute("data-theme") || "dark";
+      applyTheme(startingTheme);
+      el.themeToggle.setAttribute(
+        "aria-label",
+        startingTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+      );
+
+      let session = null;
+      try {
+        session = await api("/api/auth/me");
+      } catch (_) { /* fall through to the gate */ }
+
+      if (session?.authenticated) {
+        await openConsole(session);
+        const initial = (location.hash || "").replace("#", "");
+        if (["overview", "projects", "admins", "audit"].includes(initial)) selectTab(initial);
+        return;
+      }
+
+      const clientId = await loadConfig();
+      if (!clientId) return;
+      if (window.google?.accounts?.id) renderGoogleButton(clientId);
+      else window.addEventListener("load", () => renderGoogleButton(clientId));
+    })();
+  })();
+</script>
 </body>
 </html>

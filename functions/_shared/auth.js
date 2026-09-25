@@ -3,17 +3,26 @@
  *
  * Flow: the browser obtains a Google ID token via Google Identity Services and
  * POSTs it to /api/auth/google. We verify it against Google's JWKS, check the
- * email against the ADMIN_EMAILS allowlist, then issue our own signed session
- * cookie. The Google token is never stored.
+ * email against the admin roster, then issue our own signed session cookie whose
+ * `sid` claim points at a row in `sessions`. The Google token is never stored.
+ *
+ * Two checks run on every request, both cheap:
+ * - the email is still on the roster (ADMIN_EMAILS, or an active `admins` row)
+ * - the session row is still active, so signing someone out takes effect now
+ *   rather than whenever their 7-day cookie happens to expire
  *
  * Env:
  * - GOOGLE_CLIENT_ID (public, must match the token's aud claim)
- * - AUTH_SECRET     (secret, signs our session cookie)
- * - ADMIN_EMAILS    (comma-separated allowlist)
+ * - AUTH_SECRET     (secret, also the pepper for audit network hashes)
+ * - ADMIN_EMAILS    (comma-separated bootstrap owners)
  */
+import { adminEmails, isEnvAdmin } from "./emails.js";
+import { can, getMember, liveSession } from "./admins.js";
 
 export const SESSION_COOKIE = "lf_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+export { adminEmails, isEnvAdmin };
 
 const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 const GOOGLE_ISSUERS = new Set(["accounts.google.com", "https://accounts.google.com"]);
@@ -45,19 +54,13 @@ const encoder = new TextEncoder();
 
 /* ---------- allowlist ---------- */
 
-export function adminEmails(env) {
-  return String(env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
+/**
+ * True when the email may sign in at all: bootstrap list, or an active roster
+ * entry. Suspended admins are rejected here, before any session is issued.
+ */
+export async function isAllowedAdmin(env, email) {
+  return Boolean(await resolveMember(env, email));
 }
-
-export function isAllowedAdmin(env, email) {
-  const list = adminEmails(env);
-  if (!list.length) return false;
-  return list.includes(String(email || "").trim().toLowerCase());
-}
-
 /* ---------- session cookie ---------- */
 
 async function hmacKey(secret, usages) {
@@ -137,17 +140,53 @@ function readCookie(request, name) {
   return null;
 }
 
-/** @returns {Promise<{ email: string, sub: string } | null>} */
+/* ---------- membership ---------- */
+
+/**
+ * Resolves a signed-in email to its roster entry.
+ * The environment list wins over the table, so an ADMIN_EMAILS owner always
+ * resolves to owner even if someone edited their row.
+ * @returns {Promise<{email: string, role: string, locked: boolean} | null>}
+ */
+export async function resolveMember(env, email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target) return null;
+
+  const member = await getMember(env, target);
+  if (isEnvAdmin(env, target)) {
+    return { email: target, role: "owner", locked: true, name: member?.name || null };
+  }
+  if (!member || member.status !== "active") return null;
+  return { email: target, role: member.role, locked: false, name: member.name || null };
+}
+
+/**
+ * @returns {Promise<{ email: string, sub: string, sid: string, role: string } | null>}
+ */
 export async function getSession(request, env) {
   if (!env.AUTH_SECRET) return null;
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
   const claims = await verifySession(token, env.AUTH_SECRET);
   if (!claims?.email) return null;
-  // Re-check the allowlist on every request, so removing someone takes effect
-  // immediately instead of waiting out their 7-day cookie.
-  if (!isAllowedAdmin(env, claims.email)) return null;
-  return { email: String(claims.email), sub: String(claims.sub || "") };
+
+  // The cookie must still correspond to a live session row. Revoking it (from
+  // the console, or by suspending the admin) invalidates the cookie on the very
+  // next request.
+  const live = await liveSession(env, claims.sid);
+  if (!live || live.email !== String(claims.email).toLowerCase()) return null;
+
+  // Re-check the roster every time, so removing someone takes effect
+  // immediately instead of waiting out their cookie.
+  const member = await resolveMember(env, claims.email);
+  if (!member) return null;
+
+  return {
+    email: String(claims.email),
+    sub: String(claims.sub || ""),
+    sid: String(claims.sid),
+    role: member.role
+  };
 }
 
 /* ---------- Google ID token ---------- */
@@ -255,6 +294,15 @@ export function json(data, status = 200, extraHeaders = {}) {
  * behind the SameSite=Lax cookie.
  */
 export async function requireAdmin(request, env) {
+  return requireRole(request, env, "viewer");
+}
+
+/**
+ * Same guard, but demands a minimum role.
+ *   viewer -> may read; admin -> may write; owner -> may manage the roster
+ * @returns {Promise<{ok: true, session: object} | {ok: false, response: Response}>}
+ */
+export async function requireRole(request, env, required = "viewer") {
   const session = await getSession(request, env);
   if (!session) return { ok: false, response: json({ error: "Not authenticated." }, 401) };
 
@@ -264,6 +312,13 @@ export async function requireAdmin(request, env) {
     if (origin !== expected) {
       return { ok: false, response: json({ error: "Cross-origin request rejected." }, 403) };
     }
+  }
+
+  if (!can(session, required)) {
+    return {
+      ok: false,
+      response: json({ error: `This action needs the ${required} role.`, role: session.role }, 403)
+    };
   }
 
   return { ok: true, session };

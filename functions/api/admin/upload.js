@@ -3,7 +3,8 @@
  * multipart/form-data with a single `file` field.
  * Validates type and size, stores in R2 under projects/, returns the public URL.
  */
-import { json, requireAdmin } from "../../_shared/auth.js";
+import { json, requireRole } from "../../_shared/auth.js";
+import { auditContext, recordAudit } from "../../_shared/audit.js";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -46,7 +47,7 @@ async function shortHash(buffer) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const guard = await requireAdmin(request, env);
+  const guard = await requireRole(request, env, "admin");
   if (!guard.ok) return guard.response;
 
   if (!env.MEDIA) return json({ error: "Media storage is not configured." }, 500);
@@ -92,5 +93,19 @@ export async function onRequestPost({ request, env }) {
   }
 
   const base = String(env.MEDIA_BASE_URL || "https://media.lumina-frameworks.com").replace(/\/+$/, "");
-  return json({ ok: true, key, url: `${base}/${key}`, bytes: buffer.byteLength, type: sniffed }, 201);
+  const url = `${base}/${key}`;
+
+  const context = await auditContext(request, env);
+  await recordAudit(env, {
+    actor: guard.session.email,
+    role: guard.session.role,
+    action: "media.upload",
+    entity: "project",
+    entityId: key,
+    summary: `Uploaded ${sniffed.replace("image/", "").toUpperCase()} · ${Math.round(buffer.byteLength / 1024)}KB`,
+    details: { key, url, bytes: buffer.byteLength, type: sniffed, name: file.name },
+    context
+  });
+
+  return json({ ok: true, key, url, bytes: buffer.byteLength, type: sniffed }, 201);
 }

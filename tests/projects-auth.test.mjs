@@ -5,7 +5,7 @@
  * These cover the bits that decide whether admin input can reach the public
  * site and whether a session is trusted, so they're worth asserting on.
  */
-import { test, describe } from "node:test";
+import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -15,11 +15,12 @@ import {
 } from "../functions/_shared/projects.js";
 import {
   adminEmails,
-  isAllowedAdmin,
+  resolveMember,
   signSession,
   verifySession
 } from "../functions/_shared/auth.js";
 import { buildSystemPrompt, formatProjects } from "../functions/_shared/lumi-prompt.js";
+import { makeD1, seededDatabase } from "./helpers/d1-sqlite.mjs";
 
 describe("validateProjectInput", () => {
   const valid = {
@@ -155,16 +156,46 @@ describe("rowToProject", () => {
 });
 
 describe("admin allowlist", () => {
-  test("parses a comma-separated list case-insensitively", () => {
-    const env = { ADMIN_EMAILS: " Amir@Example.com , aliff@example.com ,, " };
-    assert.deepEqual(adminEmails(env), ["amir@example.com", "aliff@example.com"]);
-    assert.equal(isAllowedAdmin(env, "AMIR@example.com"), true);
-    assert.equal(isAllowedAdmin(env, "stranger@example.com"), false);
+  let sqlite;
+  let env;
+
+  before(() => {
+    sqlite = seededDatabase();
+    env = { ADMIN_EMAILS: " Amir@Example.com , aliff@example.com ,, ", DB: makeD1(sqlite) };
   });
 
-  test("denies everyone when the allowlist is unset or empty", () => {
-    assert.equal(isAllowedAdmin({}, "amir@example.com"), false);
-    assert.equal(isAllowedAdmin({ ADMIN_EMAILS: "   " }, "amir@example.com"), false);
+  test("parses a comma-separated list case-insensitively", () => {
+    assert.deepEqual(adminEmails(env), ["amir@example.com", "aliff@example.com"]);
+  });
+
+  test("the environment list is always admitted, and is locked as owner", async () => {
+    const member = await resolveMember(env, "AMIR@Example.com");
+    assert.equal(member.role, "owner");
+    assert.equal(member.locked, true);
+  });
+
+  test("an address outside both lists is refused", async () => {
+    assert.equal(await resolveMember(env, "stranger@example.com"), null);
+  });
+
+  test("denies everyone when the allowlist is unset and the roster is empty", async () => {
+    assert.equal(await resolveMember({ DB: env.DB }, "amir@example.com"), null);
+    assert.equal(await resolveMember({ ADMIN_EMAILS: "   ", DB: env.DB }, "amir@example.com"), null);
+  });
+
+  test("an active roster entry is admitted even when ADMIN_EMAILS does not list it", async () => {
+    sqlite
+      .prepare("INSERT INTO admins (email, role, status) VALUES (?, 'admin', 'active')")
+      .run("staff@example.com");
+
+    const member = await resolveMember(env, "staff@example.com");
+    assert.equal(member.role, "admin");
+    assert.equal(member.locked, false);
+  });
+
+  test("suspending a roster entry revokes their access immediately", async () => {
+    sqlite.prepare("UPDATE admins SET status = 'suspended' WHERE email = ?").run("staff@example.com");
+    assert.equal(await resolveMember(env, "staff@example.com"), null);
   });
 });
 

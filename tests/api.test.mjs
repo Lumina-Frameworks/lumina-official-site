@@ -89,7 +89,13 @@ before(() => {
 
 async function sessionCookieFor(email, secret = AUTH_SECRET) {
   const now = Math.floor(Date.now() / 1000);
-  const token = await signSession({ sub: "1", email, iat: now, exp: now + 3600 }, secret);
+  const sid = crypto.randomUUID();
+  // getSession now requires a live row in `sessions`, so every test session has
+  // to be opened the way the real sign-in flow opens one.
+  sqlite
+    .prepare("INSERT INTO sessions (id, email, role) VALUES (?, ?, 'owner')")
+    .run(sid, email);
+  const token = await signSession({ sub: "1", email, sid, iat: now, exp: now + 3600 }, secret);
   return `${SESSION_COOKIE}=${token}`;
 }
 
@@ -155,6 +161,39 @@ describe("db/schema.sql + db/seed.sql", () => {
       "Arefa Hermes",
       "Hermes Desk"
     ]);
+  });
+
+  test("creates the console tables the roster, sessions, and audit log need", () => {
+    for (const [table, columns] of Object.entries({
+      admins: ["email", "role", "status", "note", "added_by", "last_seen", "login_count"],
+      sessions: ["id", "email", "role", "login_at", "last_seen", "user_agent", "ip_hash", "status"],
+      audit_log: [
+        "actor", "actor_role", "action", "status", "entity", "entity_id", "summary",
+        "method", "path", "ip_hash", "country", "user_agent", "device", "browser", "os", "details"
+      ]
+    })) {
+      const found = sqlite.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+      for (const column of columns) {
+        assert.ok(found.includes(column), `${table} is missing ${column}`);
+      }
+    }
+  });
+
+  test("bootstraps the two founders as owners, once", () => {
+    // node:sqlite hands back null-prototype rows, so map them to plain objects.
+    const rows = sqlite
+      .prepare("SELECT email, role, status FROM admins ORDER BY email")
+      .all()
+      .map((row) => ({ email: row.email, role: row.role, status: row.status }));
+    assert.deepEqual(rows, [
+      { email: "aliffprime3@gmail.com", role: "owner", status: "active" },
+      { email: "amirhafizi443@gmail.com", role: "owner", status: "active" }
+    ]);
+
+    // Re-running the schema must not duplicate or resurrect anything.
+    sqlite.exec(fs.readFileSync(path.join(ROOT, "db", "schema.sql"), "utf8"));
+    const { count } = sqlite.prepare("SELECT COUNT(*) AS count FROM admins").get();
+    assert.equal(count, 2);
   });
 });
 
@@ -413,6 +452,23 @@ describe("project CRUD", () => {
       params: { slug: "ghost" }
     });
     assert.equal(response.status, 404);
+  });
+
+  test("a viewer may read the list but not write to it", async () => {
+    sqlite
+      .prepare("INSERT INTO admins (email, role, status) VALUES (?, 'viewer', 'active')")
+      .run("viewer@example.com");
+    const viewerCookie = await sessionCookieFor("viewer@example.com");
+
+    const read = await adminList({ request: req("GET", "/api/admin/projects", { cookie: viewerCookie }), env });
+    assert.equal(read.status, 200);
+
+    const write = await adminCreate({
+      request: req("POST", "/api/admin/projects", { cookie: viewerCookie, body: VALID_PROJECT }),
+      env
+    });
+    assert.equal(write.status, 403, "role gate rejects the write for a viewer");
+    assert.equal((await write.json()).role, "viewer");
   });
 });
 

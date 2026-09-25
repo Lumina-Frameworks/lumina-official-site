@@ -32,7 +32,7 @@
 
 This repository powers the **Lumina Frameworks** marketing site: a single-page experience with Swiss-precision layout, micro-interactions, a boot splash, and an embedded AI concierge named **Lumi**.
 
-Visitors can explore engagement models, estimate automation ROI, browse courses, and reach the team, all from one crafted surface.
+Visitors can explore engagement models, estimate automation ROI, browse courses, and reach the team, all from one crafted surface. Behind the sign-in gate at `/admin.html` sits the console that runs it: a project CMS, an access roster, and a full audit trail of every action taken on the site.
 
 | Surface | Purpose |
 | --- | --- |
@@ -44,6 +44,7 @@ Visitors can explore engagement models, estimate automation ROI, browse courses,
 | **Portfolio** | Selected work (Write Genius, Lumina site craft) |
 | **About / Contact** | Founders, mission, and lead capture |
 | **Lumi** | On-site guide-bot via OpenRouter (key stays server-side) |
+| **Admin console** | Google-gated CMS: projects, access roster, audit trail |
 
 ---
 
@@ -93,11 +94,13 @@ lumina-official-site/
 │   ├── 404.html                 # Branded not-found page
 │   ├── _routes.json             # Only /api/* invokes Functions (keeps static free)
 │   └── assets/                  # Logos, mascots, backdrops, project stills
+│       ├── projects-feed.js     # Public feed + the escaping guards both use
+│       └── admin-utils.js       # Console-only client helpers (roles, formats, CSV)
 ├── chat-server.mjs              # Local static + chat/contact proxy (port 8788)
 ├── wrangler.toml                # Pages config + D1 / R2 bindings
 ├── package.json                 # Wrangler dev dependency + scripts
 ├── db/
-│   ├── schema.sql               # D1 schema
+│   ├── schema.sql               # D1 schema (idempotent: safe to re-run)
 │   └── seed.sql                 # The original 10 projects
 ├── tests/
 │   ├── helpers/d1-sqlite.mjs    # D1-shaped shim over node:sqlite
@@ -105,10 +108,15 @@ lumina-official-site/
 │   ├── api.test.mjs             # Route handlers vs real SQLite (no Wrangler)
 │   ├── auth-google.test.mjs     # Google ID token verification, adversarially
 │   ├── chat.test.mjs            # Chat proxy builds its prompt from D1
-│   └── frontend.test.mjs        # Client-side escaping and URL guards
+│   ├── frontend.test.mjs        # Client-side escaping, URL guards, console helpers
+│   ├── admin-console.test.mjs   # Roster, role gates, tracked sessions, audit trail
+│   └── admin-page.test.mjs      # Console markup wiring (ids, icons, tabs)
 ├── functions/
 │   ├── _shared/
 │   │   ├── auth.js              # Session cookie + Google ID token verification
+│   │   ├── emails.js            # The ADMIN_EMAILS bootstrap list, in one place
+│   │   ├── admins.js            # Roster, roles, sessions, project diffs
+│   │   ├── audit.js             # Audit context, writes, filters, CSV, prune
 │   │   ├── projects.js          # D1 access, row mapping, validation
 │   │   ├── lumi-prompt.js       # Lumi system prompt (projects read from D1)
 │   │   └── contact-email.js     # Branded HTML email template + Resend send
@@ -117,7 +125,7 @@ lumina-official-site/
 │       ├── contact.js           # Contact form → Aliff + Amir
 │       ├── projects.js          # Public project feed
 │       ├── auth/                # config · google · logout · me
-│       └── admin/               # Projects CRUD + R2 image upload
+│       └── admin/               # projects CRUD · upload · members · audit · sessions
 └── .env.example                 # Env var template (safe to commit)
 ```
 
@@ -128,29 +136,79 @@ are never uploaded as static assets.
 
 ## Admin CMS
 
-Projects live in D1 and are edited at `/admin.html`. Both the archive grid and
-the home page carousel read from the same source, so publishing a project is one
-form submit with no HTML edits.
+Projects live in D1 and are edited at `/admin.html`. The console is tabbed:
+
+| Tab | What it does |
+| --- | --- |
+| **Overview** | Project, roster, session, and activity counts, a 14-day histogram of actions, the recent trail, and who is signed in right now |
+| **Projects** | Search, filter, and edit the portfolio. Publishing is one form submit, no HTML edits |
+| **Admin manager** | Who has access and as what. Owners only |
+| **Audit log** | Every action taken on this console, filterable and exportable to CSV |
+
+### Endpoints
 
 | Endpoint | Auth | Purpose |
 | --- | --- | --- |
 | `GET /api/projects` | public | Published projects (`?featured=1` for the carousel) |
 | `GET /api/auth/config` | public | Google client ID for the login button |
-| `POST /api/auth/google` | public | Verifies an ID token, sets the session cookie |
-| `POST /api/auth/logout` | public | Clears the session |
-| `GET /api/auth/me` | public | Current session, or `{ authenticated: false }` |
-| `GET/POST /api/admin/projects` | admin | List all / create |
+| `POST /api/auth/google` | public | Verifies an ID token, opens a tracked session |
+| `POST /api/auth/logout` | public | Revokes the current session |
+| `GET /api/auth/me` | public | Current session (email, role), or `{ authenticated: false }` |
+| `GET /api/admin/overview` | viewer | Everything the first tab renders |
+| `GET/POST /api/admin/projects` | viewer / admin | List all / create |
 | `PUT/DELETE /api/admin/projects/:slug` | admin | Update / unpublish (`?hard=1` to delete) |
 | `POST /api/admin/upload` | admin | PNG/JPEG/WebP → R2 |
+| `GET/POST /api/admin/members` | owner | Roster / grant access |
+| `PUT/DELETE /api/admin/members/:email` | owner | Re-role, suspend / remove |
+| `GET /api/admin/audit` | admin | Filtered trail (`?format=csv` to download) |
+| `GET /api/admin/sessions` | admin | Live sessions (`?scope=all` includes revoked) |
+| `DELETE /api/admin/sessions/:id` | admin | Sign one device out |
+
+### Roles
+
+| Role | Can |
+| --- | --- |
+| `viewer` | Read projects, the roster, and the trail |
+| `admin` | Everything a viewer can, plus project edits, uploads, and session revocation |
+| `owner` | Everything an admin can, plus inviting, re-roling, suspending, and removing admins |
+
+`ADMIN_EMAILS` is the bootstrap and break-glass list. Those addresses are always
+owners and cannot be edited from the console, so a mistake in the roster cannot
+lock everyone out. Everyone else is granted in the console, no redeploy needed.
+
+Two guarantees the backend enforces on **every** request: the email is still on
+the roster, and the session row is still active. Removing or suspending someone
+kills their live sessions immediately rather than whenever their cookie expires.
+The last active owner cannot be demoted, suspended, or removed, and nobody can
+change their own role.
+
+### Audit log
+
+One row per mutation and per rejected attempt, readable in the console or
+downloadable as CSV:
+
+| Field group | Contents |
+| --- | --- |
+| Who | Actor email and the role held at the time |
+| What | Action (`project.update`), entity, record id, and a human summary |
+| Change | `details.changes` carries a field-level before/after diff for edits |
+| Context | Method, path, device, browser, OS, country, and a salted network hash |
+
+The network value is the request address truncated to its `/24` (IPv4) or `/48`
+(IPv6) and hashed with `AUTH_SECRET` as the pepper. It is enough to spot "same
+network, three denied logins", without the table becoming a tracking database if
+it ever leaked. Rows older than 180 days are pruned opportunistically from the
+audit endpoint.
 
 ### How sign-in works
 
 The browser gets a Google ID token via Google Identity Services and POSTs it to
 `/api/auth/google`. The Function verifies the RS256 signature against Google's
-JWKS, then checks `aud`, `iss`, `exp`, and `email_verified` before comparing the
-address against `ADMIN_EMAILS`. Only then is a signed, `HttpOnly` session cookie
-issued. There is no client secret to store or leak, and the allowlist is
-re-checked on every request so revoking access is immediate.
+JWKS, then checks `aud`, `iss`, `exp`, and `email_verified` before looking the
+address up in the roster. Only then is a signed, `HttpOnly` session cookie
+issued, carrying a `sid` that points at a row in `sessions`. There is no client
+secret to store or leak, and both the roster and the session row are re-checked
+on every request, so revoking access is immediate.
 
 ### First-time Cloudflare setup
 
@@ -162,6 +220,10 @@ npm run db:schema                       # apply schema (remote)
 npm run db:seed                         # load the original 10 projects
 ```
 
+`db/schema.sql` is idempotent, so re-running it on a live database is safe: it
+creates the missing `admins`, `sessions`, and `audit_log` tables, and seeds the
+founders as owners only when the roster is still empty.
+
 Then in **Pages → Settings → Variables and Secrets**, add:
 
 | Name | Type | Value |
@@ -169,6 +231,10 @@ Then in **Pages → Settings → Variables and Secrets**, add:
 | `GOOGLE_CLIENT_ID` | plain | OAuth 2.0 Web client ID |
 | `AUTH_SECRET` | secret | `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 | `ADMIN_EMAILS` | plain | `amirhafizi443@gmail.com,aliffprime3@gmail.com` |
+
+`ADMIN_EMAILS` is the bootstrap list: those accounts are always owners. Everyone
+else is added from the console's **Admin manager** tab, which writes to D1 and
+needs no redeploy.
 
 In Google Cloud Console, add `https://lumina-frameworks.com` and
 `http://127.0.0.1:8788` as **authorised JavaScript origins** on that client ID.
@@ -239,26 +305,41 @@ Without D1 the pages fall back to the project list baked into the HTML, so the
 site still renders. `/api/contact` needs `RESEND_API_KEY` and only works
 against production.
 
+The console needs `GOOGLE_CLIENT_ID`, `AUTH_SECRET`, and `ADMIN_EMAILS` in
+`.dev.vars` before its sign-in gate will do anything; without them
+`/api/auth/config` reports `configured: false` and the gate says so in its
+status line. Any values will do locally, but the Google account you test with
+must be on `ADMIN_EMAILS` (or already in the `admins` table), and
+`http://127.0.0.1:8788` has to be an authorised JavaScript origin on that client
+ID for Google to hand back a token.
+
+```bash
+npm run db:schema:local   # creates admins + sessions + audit_log too
+npx wrangler d1 execute lumina-cms --local --command "SELECT email, role FROM admins"
+```
+
 ### 4. Tests
 
 ```bash
-npm test               # node --test tests/
+npm test               # node --test tests/*.test.mjs
 npm run test:direct    # same tests, run in-process (no child processes)
 ```
 
 | File | Covers |
 | --- | --- |
-| `tests/projects-auth.test.mjs` | Input validation, URL/image injection guards, session signing, allowlist, Lumi's prompt |
+| `tests/projects-auth.test.mjs` | Input validation, URL/image injection guards, session signing, roster membership, Lumi's prompt |
 | `tests/api.test.mjs` | The real route handlers against real SQLite: schema, seed, public feed, auth guard, CRUD, R2 upload |
 | `tests/auth-google.test.mjs` | Google ID token verification: signature, `aud`/`iss`/`exp`, `alg:none` downgrade, attacker keys |
 | `tests/chat.test.mjs` | That the chat proxy builds Lumi's prompt from D1 rather than the fallback list |
-| `tests/frontend.test.mjs` | The public pages' client-side guards: `escapeHtml`, `safeUrl`, `safeImage`, payload normalisation |
+| `tests/frontend.test.mjs` | The public pages' guards and the console's client helpers: `escapeHtml`, `safeUrl`, `safeImage`, payload normalisation, role checks, timestamp formatting, CSV building |
+| `tests/admin-console.test.mjs` | Role gates, tracked sessions and immediate revocation, roster guard rails, the audit trail and its CSV export |
+| `tests/admin-page.test.mjs` | That the console's markup is wired: every `getElementById` target exists, every icon resolves, tabs match panels |
 
-`api.test.mjs` and `chat.test.mjs` are deliberately Wrangler-free. D1 is SQLite
-and Node ships `node:sqlite`, so they apply the actual `db/schema.sql` and
-`db/seed.sql` and drive the actual handlers with a small D1-shaped shim
-(`tests/helpers/d1-sqlite.mjs`). That covers the SQL, the bind order, the column
-names, and the auth guard without a Cloudflare account.
+`api.test.mjs`, `chat.test.mjs`, and `admin-console.test.mjs` are deliberately
+Wrangler-free. D1 is SQLite and Node ships `node:sqlite`, so they apply the
+actual `db/schema.sql` and `db/seed.sql` and drive the actual handlers with a
+small D1-shaped shim (`tests/helpers/d1-sqlite.mjs`). That covers the SQL, the
+bind order, the column names, and the auth guard without a Cloudflare account.
 
 `auth-google.test.mjs` needs no Google account either: it generates its own RSA
 keypair, serves it as the JWKS by stubbing `fetch`, and signs its own tokens so
@@ -269,7 +350,6 @@ keys, and real R2 behaviour.
 
 > `npm test` spawns child processes and can be blocked by a restricted sandbox;
 > `npm run test:direct` runs the same assertions in-process.
-
 ---
 
 ## Deploy (Cloudflare Pages)
