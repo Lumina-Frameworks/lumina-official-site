@@ -22,6 +22,9 @@ import { onRequestGet as adminList, onRequestPost as adminCreate } from "../func
 import { onRequestPut as adminUpdate, onRequestDelete as adminDelete } from "../functions/api/admin/projects/[slug].js";
 import { onRequestPost as adminUpload } from "../functions/api/admin/upload.js";
 import { onRequestGet as authMe } from "../functions/api/auth/me.js";
+import * as contactModule from "../functions/api/contact.js";
+import { onRequestPost as contactPost } from "../functions/api/contact.js";
+import { validateContactPayload } from "../functions/_shared/contact-email.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -257,6 +260,51 @@ describe("admin auth guard", () => {
 });
 
 /* ---------- CRUD ---------- */
+
+/* ---------- contact form abuse guards ---------- */
+
+describe("contact form", () => {
+  const good = { name: "Amir", email: "amirhafizi443@gmail.com", interest: "DIY", message: "Hello." };
+
+  test("accepts a normal address", () => {
+    assert.equal(validateContactPayload(good), null);
+  });
+
+  test("rejects a one-character TLD that Resend would refuse with a 422", () => {
+    // This is the case that used to slip through and surface as a confusing 500.
+    assert.equal(validateContactPayload({ ...good, email: "x@y.z" }), "A valid email is required.");
+    assert.equal(validateContactPayload({ ...good, email: "a@b.c" }), "A valid email is required.");
+  });
+
+  test("still rejects addresses with no domain or no TLD", () => {
+    for (const email of ["nope", "nope@", "@nope.com", "nope@localhost", "a b@c.com"]) {
+      assert.equal(validateContactPayload({ ...good, email }), "A valid email is required.", email);
+    }
+  });
+
+  test("accepts plus-addressing and multi-part TLDs", () => {
+    assert.equal(validateContactPayload({ ...good, email: "amir+cms@example.co.uk" }), null);
+  });
+
+  test("sends no CORS wildcard, so a foreign site cannot post the form", async () => {
+    const response = await contactPost({
+      request: req("POST", "/api/contact", {
+        body: { name: "", email: "", interest: "", message: "" }
+      }),
+      env: { ...env, RESEND_API_KEY: "re_test_key_not_used" }
+    });
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+  });
+
+  test("exposes no OPTIONS handler", () => {
+    assert.equal(
+      contactModule.onRequestOptions,
+      undefined,
+      "a preflight handler would re-open cross-origin posting"
+    );
+  });
+});
 
 describe("project CRUD", () => {
   let cookie;

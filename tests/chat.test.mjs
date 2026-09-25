@@ -14,7 +14,6 @@ import assert from "node:assert/strict";
 
 import { makeD1, seededDatabase } from "./helpers/d1-sqlite.mjs";
 import { onRequestPost } from "../functions/api/chat.js";
-
 const sqlite = seededDatabase();
 
 let captured = null;
@@ -153,5 +152,20 @@ describe("POST /api/chat", () => {
     const body = await response.json();
     assert.equal(body.status, 500);
     assert.match(body.detail, /upstream exploded/);
+  });
+
+  test("sends no CORS wildcard, so a foreign site cannot spend the API credits", async () => {
+    stubOpenRouter();
+    const { onRequestPost: freshChat } = await import("../functions/api/chat.js?v=cors");
+    const response = await freshChat({
+      request: chatRequest([{ role: "user", content: "hi" }]),
+      env
+    });
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+  });
+
+  test("exposes no OPTIONS handler", async () => {
+    const mod = await import("../functions/api/chat.js");
+    assert.equal(mod.onRequestOptions, undefined, "a preflight handler would re-open cross-origin use");
   });
 });

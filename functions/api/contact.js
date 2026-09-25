@@ -1,10 +1,14 @@
 /**
  * Cloudflare Pages Function: contact form → branded email via Resend
- * Recipients: aliffros@ + amirhafizi@ lumina-frameworks.com
+ * Recipients: see CONTACT_RECIPIENTS in ../_shared/contact-email.js
  *
  * Env:
  * - RESEND_API_KEY (secret)
  * - CONTACT_FROM (optional, e.g. "Lumina Frameworks <hello@lumina-frameworks.com>")
+ *
+ * Deliberately no CORS headers. A wildcard Access-Control-Allow-Origin let any
+ * website POST this form and send mail through the project's Resend account.
+ * The form is same-origin, so no CORS headers are needed.
  */
 import { sendContactEmail } from "../_shared/contact-email.js";
 
@@ -33,24 +37,9 @@ export async function onRequestPost(context) {
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400"
-    }
-  });
-}
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
-    }
+    headers: { "Content-Type": "application/json" }
   });
 }

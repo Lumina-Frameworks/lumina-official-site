@@ -37,7 +37,9 @@ export function validateContactPayload({ name, email, interest, message }) {
   if (!name || !email || !interest || !message) {
     return "Fill in all fields before transmitting.";
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // TLD must be at least two letters. The looser version accepted "x@y.z",
+  // which Resend rejects with a 422, turning a typo into a confusing 500.
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
     return "A valid email is required.";
   }
   if (!INTEREST_META[interest]) {

@@ -92,30 +92,17 @@ export async function onRequestPost(context) {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*"
-    }
-  });
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400"
+      Connection: "keep-alive"
     }
   });
 }
 
 function json(data, status = 200) {
+  // Deliberately no Access-Control-Allow-Origin. A wildcard here let any
+  // website spend this project's OpenRouter credits. The chat widget is
+  // same-origin, so no CORS headers are needed.
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
-    }
+    headers: { "Content-Type": "application/json" }
   });
 }
