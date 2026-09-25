@@ -218,7 +218,7 @@ describe("admin.html wiring", () => {
     assert.ok(select, "no selectProject");
     assert.ok(!select[0].includes("renderList()"), "selection must not rebuild the list");
     assert.match(select[0], /paintActiveRow\(slug\)/);
-    assert.match(select[0], /ensureEditorVisible\(\)/);
+    assert.match(select[0], /openEditor\(\)/);
 
     // The entry animation must not live on .row, or toggling a class replays it.
     const row = html.match(/\n    \.row \{[\s\S]*?\n    \}/);
@@ -450,6 +450,41 @@ describe("admin.html wiring", () => {
     assert.match(html, /shortLabel: "Works"/);
     // Both tile groups supply them, or one group truncates again.
     assert.equal((html.match(/shortLabel:/g) || []).length, 8, "a tile is missing its short label");
+  });
+
+  test("the phone projects view is a two-step drill-down", () => {
+    // Stacking the rail above the editor left ~470px of list and then a dead
+    // panel below it, which is a lot of scrolling for no destination.
+    assert.match(html, /body\.project-open #panel-projects > \.console-grid > aside \{ display: none; \}/);
+    assert.match(html, /body\.project-open #editor-panel \{ display: block;/);
+    assert.match(html, /#editor-panel \{ display: none; \}/);
+    // Desktop keeps both panes: the grid is untouched above the split point.
+    assert.match(html, /@media \(min-width: 1040px\) \{ \.console-grid \{ grid-template-columns: 350px minmax\(0, 1fr\); \} \}/);
+
+    // The rail is the whole screen now, so it gets the whole height and a
+    // sticky filter bar.
+    assert.match(html, /\.list \{ max-height: none; \}/);
+    assert.match(html, /\.list-tools \{ position: sticky; top: var\(--bar-h\);/);
+
+    // A back affordance, because there is no browser-back inside a tab.
+    assert.ok(html.includes('id="editor-back"'), "no back button");
+    assert.match(html, /\.editor-back \{ display: none; \}/);
+    assert.match(html, /\.editor-back \{[\s\S]*?display: inline-flex;/);
+    assert.match(html, /el\.editorBack\.addEventListener\("click", showProjects\)/);
+    // New project opens the second step; saving returns to the first.
+    assert.match(html, /openEditor\(\);\s*\n\s*F\.title\.focus\(\);/);
+    assert.match(html, /if \(isHandset\(\)\) showProjects\(\);/);
+    // Rotating to a tablet drops the drill-down.
+    assert.match(html, /if \(event\.matches\) document\.body\.classList\.remove\("project-open"\);/);
+  });
+
+  test("unsaved edits are not silently lost", () => {
+    assert.match(html, /if \(state\.dirty\) \{/);
+    assert.match(html, /Leave without saving\?/);
+    assert.match(html, /window\.addEventListener\("beforeunload"/);
+    // Loading the form is a snapshot, not an edit.
+    assert.match(html, /state\.dirty = false;\s*\n    \}\s*\n\s*\n    function setFormDisabled/);
+    assert.match(html, /el\.editor\.addEventListener\("input", \(\) => \{ state\.dirty = true; \}\)/);
   });
 
   test("no leftover debug output ships in the page", () => {

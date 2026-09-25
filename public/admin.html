@@ -915,6 +915,32 @@
        animating the row would replay the whole list on every selection change,
        which reads as a phantom page refresh.
        --------------------------------------------------------------------- */
+    /* ---------------------------------------------------------------------
+       Projects, phone layout: a two-step drill-down
+       Stacking the rail above the editor leaves ~470px of list and then a dead
+       panel below it, which is a lot of scrolling for no destination. On a
+       phone the two panes become two steps: the list fills the screen, and
+       tapping a project replaces it with the editor plus a back button. Same
+       markup, same handlers, toggled by a class.
+       --------------------------------------------------------------------- */
+    .editor-back { display: none; }
+    @media (max-width: 899px) {
+      .console-grid { display: block; }
+      #editor-panel { display: none; }
+
+      body.project-open #panel-projects > .console-grid > aside { display: none; }
+      body.project-open #editor-panel { display: block; animation: panelIn 0.32s var(--ease-out) both; }
+
+      .editor-back {
+        display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px;
+      }
+      /* The rail is the whole screen now, so it gets the whole height. */
+      .list { max-height: none; }
+      .list-tools { position: sticky; top: var(--bar-h); z-index: 4; background: var(--bg-panel); }
+      /* The idle panel is only ever seen at desktop width, where the grid
+         reserves real space for it. */
+      .pad-note.tall { min-height: 44vh; }
+    }
     .row {
       position: relative;
       display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
@@ -1546,6 +1572,7 @@
     <g id="i-star"><path d="M12 3.4l2.6 5.3 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.9z"/></g>
     <g id="i-sun"><path d="M12 16.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2Z"/><path d="M12 2.6v2M12 19.4v2M4.2 12h-2M21.8 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4"/></g>
     <g id="i-moon"><path d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.8 8.8 0 1 0 10.6 10.6Z"/></g>
+    <g id="i-arrow-left"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></g>
     <g id="i-menu"><path d="M4 7h16M4 12h16M4 17h16"/></g>
     <g id="i-external"><path d="M14.2 4.6h5.2v5.2"/><path d="M19.4 4.6 11.6 12.4"/><path d="M18 13.6v5.8H4.6V6h5.8"/></g>
     <g id="i-info"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 11v5.4M12 7.8h.01"/></g>
@@ -1860,6 +1887,10 @@
           </div>
 
           <form class="editor hidden" id="editor" novalidate>
+            <button class="ghost tiny editor-back" id="editor-back" type="button">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow-left"/></svg>
+              <span class="btn-label">All projects</span>
+            </button>
             <div class="editor-head">
               <h1 id="editor-heading">New project</h1>
               <span class="pill" id="editor-status"></span>
@@ -2196,8 +2227,8 @@
       sessionCount: $("overview-session-count"),
       /* projects */
       list: $("list"), listCount: $("list-count"), newProject: $("new-project"),
-      editorPanel: $("editor-panel"),
       search: $("project-search"), editor: $("editor"), editorEmpty: $("editor-empty"),
+      editorBack: $("editor-back"),
       idleMark: $("idle-mark"),
       heading: $("editor-heading"), status: $("editor-status"), slug: $("editor-slug"),
       categoryList: $("category-list"), save: $("save"), reset: $("reset"),
@@ -2248,6 +2279,8 @@
       loaded: { overview: false, admins: false, audit: false },
       expiryHandled: false,
       signingOut: false,
+      /** Set while the editor holds changes that are not in the database. */
+      dirty: false,
       adminEditing: null
     };
 
@@ -2942,8 +2975,50 @@
       state.current = project;
       fill(project);
       paintActiveRow(slug);
-      ensureEditorVisible();
+      openEditor();
     }
+
+    /* ---------- two-step drill-down (phone) ---------- */
+
+    function isHandset() {
+      return window.matchMedia("(max-width: 899px)").matches;
+    }
+
+    /** Second step: the editor replaces the list. A no-op on desktop. */
+    function openEditor() {
+      if (!isHandset()) return;
+      document.body.classList.add("project-open");
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+
+    /** First step: back to the list, remembering the selection. */
+    function showProjects() {
+      if (state.dirty) {
+        confirmAction({
+          title: "Leave without saving?",
+          body: "This project has unsaved changes. Going back to the list discards them.",
+          confirm: "Discard changes",
+          danger: true
+        }).then((ok) => {
+          if (ok) {
+            state.dirty = false;
+            if (state.current) fill(state.current);
+            document.body.classList.remove("project-open");
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }
+        });
+        return;
+      }
+      document.body.classList.remove("project-open");
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+
+    /** Rotating into a tablet drops the drill-down; both panes are visible. */
+    window.matchMedia("(min-width: 900px)").addEventListener("change", (event) => {
+      if (event.matches) document.body.classList.remove("project-open");
+    });
+
+    el.editorBack.addEventListener("click", showProjects);
 
     /**
      * Moves the selection highlight without rebuilding the list. Re-rendering
@@ -2961,19 +3036,6 @@
       active.classList.remove("is-selected");
       void active.offsetWidth;
       active.classList.add("is-selected");
-    }
-
-    /**
-     * Below the split point the editor sits under the list, so a mobile tap has
-     * to bring it into view. Skips the scroll when it is already on screen,
-     * otherwise every tap nudges the page.
-     */
-    function ensureEditorVisible() {
-      if (!window.matchMedia("(max-width: 1039px)").matches) return;
-      const box = el.editorPanel.getBoundingClientRect();
-      const visible = box.height > 0 && box.top < window.innerHeight * 0.75 && box.bottom > 120;
-      if (visible) return;
-      el.editorPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function fill(project) {
@@ -3004,6 +3066,8 @@
       el.unpublish.classList.toggle("hidden", !saved || !canWrite());
       el.destroy.classList.toggle("hidden", !saved || !canWrite());
       setFormDisabled(!canWrite());
+      // Loading the form is not an edit: the snapshot in state is the database.
+      state.dirty = false;
     }
 
     function setFormDisabled(disabled) {
@@ -3060,6 +3124,7 @@
       el.unpublish.classList.add("hidden");
       el.destroy.classList.add("hidden");
       renderList();
+      openEditor();
       F.title.focus();
     }
 
@@ -3094,7 +3159,8 @@
       }
       busy(el.save, true, "Saving…");
       try {
-        if (state.current?.slug) {
+        const wasNew = !state.current?.slug;
+        if (!wasNew) {
           const data = await api("/api/admin/projects/" + encodeURIComponent(state.current.slug), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -3111,9 +3177,13 @@
           state.current = data.project;
           toast("Created " + data.project.slug + ".", "ok", "Project created");
         }
+        state.dirty = false;
         await loadProjects();
         fill(state.current);
         refreshIfLoaded();
+        // A save is the end of the task, so a phone goes back to the list
+        // rather than leaving the reader on a form they are done with.
+        if (isHandset()) showProjects();
       } catch (err) {
         toast(err.message, "err", "Save failed");
       } finally {
@@ -3121,9 +3191,20 @@
       }
     });
 
+    // The editor holds unsaved changes: used by the back button and by the
+    // beforeunload guard below.
+    el.editor.addEventListener("input", () => { state.dirty = true; });
+    el.editor.addEventListener("change", () => { state.dirty = true; });
+    window.addEventListener("beforeunload", (event) => {
+      if (!state.dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+
     el.reset.addEventListener("click", () => {
       if (state.current) fill(state.current);
       else startNew();
+      state.dirty = false;
       toast("Form reverted to the saved values.", "info", "Reverted");
     });
 
@@ -3210,6 +3291,7 @@
       try {
         const data = await api("/api/admin/upload", { method: "POST", body });
         state.imageUrl = data.url;
+        state.dirty = true;
         renderPreview();
         toast("Uploaded " + U.formatBytes(data.bytes) + ". Save to apply.", "ok", "Image ready");
         refreshIfLoaded();
