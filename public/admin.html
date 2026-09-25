@@ -452,14 +452,14 @@
 
     /* =====================================================================
        Navigation drawer
-       A horizontally scrolling strip of four tabs was the wrong answer for a
-       phone: it hid two of the destinations off-screen and left a floating
-       refresh button in the middle of nowhere. Below 900px the destination
-       list moves into a left drawer behind a hamburger.
+       One menu, two presentations: the phone's full-height drawer, and the
+       desktop overflow popover under the panel bar. One set of controls in the
+       DOM, so nothing is duplicated.
 
-       Hidden by default. `display: contents` as the base rule left the panel
-       and its veil in the desktop layout as unstyled blocks, laid out inline
-       between the bar and the content.
+       The panel is never `display: none`. A display flip leaves an element with
+       no computed transform to animate from, which is why the menu used to snap
+       open instead of sliding. `display: contents` here also left the panel and
+       its veil in the desktop layout as unstyled blocks, which is worse.
        ===================================================================== */
     .nav-toggle { display: none; }
     .drawer, .drawer-veil, .drawer-panel { display: none; }
@@ -483,14 +483,19 @@
       .bar .operator { display: none; }
 
       .drawer { display: block; }
+      /* The panel must NOT be display:none while closed. A display flip leaves
+         the element with no computed transform to animate from, so the browser
+         paints it straight at its open position and the menu snaps open with no
+         slide. It stays rendered and parked off-screen instead. */
       .drawer-veil {
         display: block;
         position: fixed; inset: 0; z-index: 68;
         background: rgba(2, 4, 8, 0.6);
-        opacity: 0; visibility: hidden;
-        transition: opacity 0.28s var(--ease-out), visibility 0.28s;
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        transition: opacity 0.3s var(--ease-out);
       }
-      body.drawer-open .drawer-veil { opacity: 1; visibility: visible; }
+      body.drawer-open .drawer-veil { opacity: 1; }
       .drawer-panel {
         display: flex; flex-direction: column;
         position: fixed; top: 0; left: 0; z-index: 69;
@@ -503,11 +508,17 @@
         max-width: 100%;
         background: var(--bg-panel);
         border-right: 1px solid var(--line-strong);
-        transform: translateX(-102%);
-        transition: transform 0.34s var(--ease-out);
+        transform: translate3d(-112%, 0, 0);
+        transition: transform 0.36s var(--ease-out);
+        /* Promoted, so the slide is composited rather than repainted over a
+           scrolling document. */
+        will-change: transform;
         box-shadow: 24px 0 60px -30px rgba(0, 0, 0, 0.7);
       }
-      body.drawer-open .drawer-panel { transform: none; }
+      .drawer-veil, .drawer-panel { pointer-events: none; }
+      body.drawer-open .drawer-veil,
+      body.drawer-open .drawer-panel { pointer-events: auto; }
+      body.drawer-open .drawer-panel { transform: translate3d(0, 0, 0); }
       body.drawer-open { overflow: hidden; }
 
       .drawer-head {
@@ -1359,11 +1370,15 @@
         border: 1px solid var(--line-strong);
         clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
         box-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.65);
-        transform: translateX(calc(100% + var(--pad) + 8px));
+        /* Parked right, and translate3d on both sides of the transition so the
+           interpolation is between the same function pair. Mixing translateX
+           with `none` is interpolable but leaves the two layouts animating by
+           different rules. */
+        transform: translate3d(calc(100% + var(--pad) + 8px), 0, 0);
         transition: transform 0.3s var(--ease-out), opacity 0.24s var(--ease-out);
-        opacity: 0; pointer-events: none;
+        opacity: 0; pointer-events: none; will-change: transform;
       }
-      body.drawer-open .drawer-panel { transform: none; opacity: 1; pointer-events: auto; }
+      body.drawer-open .drawer-panel { transform: translate3d(0, 0, 0); opacity: 1; pointer-events: auto; }
       .drawer-head .drawer-eyebrow { display: none; }
       .drawer-head { padding: 11px 10px 11px 14px; }
     }

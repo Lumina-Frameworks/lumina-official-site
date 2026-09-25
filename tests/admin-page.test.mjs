@@ -371,7 +371,7 @@ describe("admin.html wiring", () => {
     // The strip is hidden rather than removed, so panel labelling survives.
     assert.match(html, /\.tabs \{ display: none; \}/);
     assert.ok(!/\.tabs \{ display: flex; gap: 4px; overflow-x: auto/.test(html.split("@media (max-width: 899px)")[1].split("@media (min-width: 900px)")[0]));
-    assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: none; \}/);
+    assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: translate3d\(0, 0, 0\); \}/);
     // Escape and the veil both close it.
     assert.match(html, /el\.drawerVeil\.addEventListener\("click", \(\) => closeDrawer/);
     assert.match(html, /event\.key === "Escape" && document\.body\.classList\.contains\("drawer-open"\)/);
@@ -634,6 +634,37 @@ describe("admin.html wiring", () => {
     assert.match(panel[0], /position: fixed; top: 0; left: 0; z-index: 69;/);
     assert.match(panel[0], /height: 100vh;\s*\n\s*height: 100dvh;/);
     assert.ok(!/bottom: 0/.test(panel[0]), "the panel went back to bottom: 0");
+  });
+
+  test("the menu slides instead of snapping", () => {
+    // A closed panel that is display:none has no computed transform to animate
+    // from, so the browser paints it straight at its open position. It has to
+    // stay rendered and parked off-screen.
+    const mobile = html.slice(html.indexOf("@media (max-width: 899px) {"));
+    const panel = mobile.match(/\.drawer-panel \{[^}]*\}/)[0];
+    assert.match(panel, /display: flex/, "the mobile panel is not rendered while closed");
+    assert.match(panel, /transform: translate3d\(-112%, 0, 0\);/, "no parked transform to animate from");
+    assert.match(panel, /transition: transform 0\.36s/, "no transform transition");
+    assert.match(panel, /will-change: transform;/, "not promoted, so the slide repaints");
+
+    // Both sides of the transition use the same function, which is what makes
+    // the interpolation predictable.
+    assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: translate3d\(0, 0, 0\); \}/);
+    assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: translate3d\(0, 0, 0\); opacity: 1; pointer-events: auto; \}/);
+    assert.ok(
+      !/body\.drawer-open \.drawer-panel \{[^}]*transform: none/.test(html),
+      "the open state went back to transform: none"
+    );
+
+    // The veil cross-fades rather than switching visibility.
+    const veil = mobile.match(/\.drawer-veil \{[^}]*\}/)[0];
+    assert.match(veil, /opacity: 0;/);
+    assert.match(veil, /transition: opacity 0\.3s/);
+    assert.ok(!/visibility/.test(veil), "visibility switching defeats the fade");
+
+    // Parked but inert: the panel must not swallow taps while it is off-screen.
+    assert.match(html, /\.drawer-veil, \.drawer-panel \{ pointer-events: none; \}/);
+    assert.match(html, /body\.drawer-open \.drawer-panel \{ pointer-events: auto; \}/);
   });
 
   test("no leftover debug output ships in the page", () => {
