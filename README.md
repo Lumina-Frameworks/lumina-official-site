@@ -277,7 +277,7 @@ keys, and real R2 behaviour.
 This repo is configured as a Pages project (`wrangler.toml`):
 
 ```toml
-name = "lumina-main-site-v4"
+name = "luminaframework"
 pages_build_output_dir = "./public"
 ```
 
@@ -300,7 +300,7 @@ pages_build_output_dir = "./public"
 Verify your domain in [Resend](https://resend.com) so mail can send from `@lumina-frameworks.com` to Aliff and Amir.
 
 ```bash
-npx wrangler pages deploy public --project-name=lumina-main-site-v4
+npx wrangler pages deploy public --project-name=luminaframework
 ```
 
 > Deploy `public/`, never `.`. Passing `.` uploads the repo root and re-exposes
