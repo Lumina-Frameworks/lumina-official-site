@@ -164,6 +164,39 @@ describe("admin.html wiring", () => {
     assert.match(html, /localStorage\.getItem\("lumina-theme"\)/);
   });
 
+  test("the gate heading matches the site's display scale", () => {
+    // Syne at 800 is a superellipse slab; the marketing site caps its display
+    // headings at 700 / 3.25rem. The console had drifted to 800 / 3.5rem.
+    const rule = html.match(/\.gate-intro h1 \{[\s\S]*?\}/);
+    assert.ok(rule, "no gate heading rule");
+    assert.match(rule[0], /font-weight: 700;/);
+    assert.ok(!rule[0].includes("font-weight: 800"), "800 is too heavy at this size");
+    const size = rule[0].match(/font-size: clamp\(([\d.]+)rem/);
+    assert.ok(Number(size[1]) <= 1.9, `heading starts too large: ${size[1]}rem`);
+  });
+
+  test("the Google button cannot expose its white canvas", () => {
+    // The wrapper must not be stretched: the button inside is a fixed width, and
+    // the gap between them shows the iframe's white background.
+    const wrapper = html.match(/#gsi-button > div \{[^}]*\}/);
+    assert.ok(wrapper, "no wrapper rule");
+    assert.ok(!/width: 100% !important/.test(wrapper[0]), "stretching the wrapper reveals the white slab");
+    assert.match(wrapper[0], /width: 300px !important/);
+
+    // color-scheme leaking into the frame is the other half of the bug.
+    assert.match(html, /#gsi-button \{ margin-bottom: 14px; color-scheme: light; \}/);
+    assert.match(html, /#gsi-button iframe \{[^}]*color-scheme: light/);
+    // And the requested GSI width has to match the reserved box.
+    assert.match(html, /width: 300,\n\s+text: "signin_with"/);
+  });
+
+  test("the bar brand block links home", () => {
+    assert.match(html, /<a class="brand-link" href="\.\/index\.html" id="brand-home"/);
+    assert.match(html, /el\.brandHome\?\.addEventListener\("click", markReturn\)/);
+    // Still exactly one h1 per surface's main heading, plus the editor's.
+    assert.equal((html.match(/<h1/g) || []).length, 2);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

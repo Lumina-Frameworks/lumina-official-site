@@ -309,6 +309,17 @@
       100% { transform: translateX(100%); opacity: 0; }
     }
     .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    /* The whole brand block is the home link, so it needs to read as one. */
+    .brand-link {
+      display: flex; align-items: center; gap: 11px; min-width: 0;
+      padding: 4px 6px 4px 4px; margin-left: -4px;
+      color: inherit; text-decoration: none;
+      clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+      transition: background 0.2s var(--ease-out);
+    }
+    .brand-link:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+    .brand-link:hover .brand-title { color: var(--accent-3); }
+    .brand-link:active { transform: translateY(1px); }
     .brand-mark {
       width: 34px; height: 34px; flex: none; display: grid; place-items: center;
       position: relative;
@@ -324,12 +335,14 @@
       mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       mask-composite: exclude; -webkit-mask-composite: xor; padding: 1px;
     }
-    .brand-text { min-width: 0; }
+    .brand-text { min-width: 0; display: block; }
     .brand-title {
+      display: block;
       font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
       color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: color 0.2s var(--ease-out);
     }
-    .brand-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-faint); }
+    .brand-sub { display: block; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-faint); }
     .bar-spacer { flex: 1 1 auto; }
 
     .operator {
@@ -390,15 +403,30 @@
       clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
     }
     .gate-intro h1 {
-      font-family: var(--font-display); font-weight: 800;
-      font-size: clamp(2.1rem, 5.4vw, 3.5rem); line-height: 1.02; letter-spacing: -0.02em;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: clamp(1.75rem, 3.6vw, 2.75rem); line-height: 1.06; letter-spacing: -0.015em;
       margin-bottom: 16px;
+      text-wrap: balance;
     }
     .gate-intro h1 em {
       font-style: normal; display: block;
       background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     .gate-intro p { color: var(--ink-soft); font-size: clamp(0.94rem, 1.6vw, 1.03rem); max-width: 46ch; }
+    /* Below the split point the intro stacks above the card, so it has to stay
+       short: a phone should reach the sign-in button in one screen. */
+    @media (max-width: 999px) {
+      .gate-shell { align-items: start; padding-top: clamp(20px, 5vh, 44px); }
+      .gate-intro h1 { margin-bottom: 12px; }
+      .gate-intro p { max-width: 52ch; }
+      .gate-points { margin-top: 18px; gap: 10px; }
+      .gate-point span { font-size: 12px; }
+    }
+    @media (max-width: 560px) {
+      .gate-points { display: none; }
+      .gate-card-inner { padding: 22px 18px; }
+      .gate-foot { gap: 6px 12px; }
+    }
     .gate-points { display: grid; gap: 12px; margin-top: 26px; }
     .gate-point { display: flex; gap: 12px; align-items: flex-start; }
     .gate-point .icon {
@@ -455,9 +483,19 @@
     }
     @keyframes blink { 50% { opacity: 0; } }
 
-    #gsi-button { min-height: 46px; margin-bottom: 12px; display: flex; justify-content: center; }
-    #gsi-button > div { width: 100% !important; }
-    #gsi-button iframe { max-width: 100%; }
+    /* --- Google sign-in button -------------------------------------------
+       GSI renders into an iframe whose background is the browser canvas, not
+       ours. Two things went wrong before: the wrapper was stretched to 100%
+       while the button inside stayed a fixed width, and the page's color-scheme
+       leaked into the frame. Kept slightly narrower than the card's content
+       box: a frame that is a pixel too wide wraps and reveals the white
+       canvas, a pixel too narrow just shows our own background. */
+    #gsi-button { margin-bottom: 14px; color-scheme: light; }
+    #gsi-button > div { width: 300px !important; height: 44px; margin: 0 auto; }
+    #gsi-button iframe { width: 300px !important; height: 44px !important; color-scheme: light; display: block; }
+    @media (max-width: 480px) {
+      #gsi-button > div, #gsi-button iframe { width: 260px !important; }
+    }
     .gate-note {
       font-family: var(--font-mono); font-size: 10.5px; line-height: 1.6; color: var(--ink-faint);
       display: flex; align-items: flex-start; gap: 8px;
@@ -1198,13 +1236,15 @@
 <!-- ======================= bar ======================= -->
 <header class="bar">
   <div class="brand">
-    <div class="brand-mark">
-      <img id="brand-logo" src="./assets/lumina-logo-dark.png" alt="Lumina Frameworks" />
-    </div>
-    <div class="brand-text">
-      <div class="brand-title">// ADMIN_CONSOLE</div>
-      <div class="brand-sub" id="bar-status">SECURE CHANNEL</div>
-    </div>
+    <a class="brand-link" href="./index.html" id="brand-home" title="Back to lumina-frameworks.com">
+      <span class="brand-mark">
+        <img id="brand-logo" src="./assets/lumina-logo-dark.png" alt="" />
+      </span>
+      <span class="brand-text">
+        <span class="brand-title">// ADMIN_CONSOLE</span>
+        <span class="brand-sub" id="bar-status">SECURE CHANNEL</span>
+      </span>
+    </a>
   </div>
 
   <span class="bar-spacer"></span>
@@ -1710,7 +1750,8 @@
       gate: $("gate"), console: $("console"), barStatus: $("bar-status"),
       operatorChip: $("operator-chip"), avatar: $("operator-avatar"), user: $("bar-user"),
       role: $("bar-role"), logout: $("quick-logout"), viewSite: $("view-site"),
-      themeToggle: $("theme-toggle"), brandLogo: $("brand-logo"), refresh: $("refresh"),
+      themeToggle: $("theme-toggle"), brandLogo: $("brand-logo"), brandHome: $("brand-home"),
+      refresh: $("refresh"),
       tabInk: $("tab-ink"), toasts: $("toasts"),
       /* overview */
       tiles: $("overview-tiles"), feed: $("overview-feed"), sessions: $("overview-sessions"),
@@ -1921,10 +1962,12 @@
         auto_select: false,
         cancel_on_tap_outside: true
       });
+      // 300 is the widest standard button, and it leaves a hair of the card's
+      // own background around the frame instead of exposing the white canvas.
       window.google.accounts.id.renderButton(el.gsi, {
         theme: document.documentElement.getAttribute("data-theme") === "dark" ? "filled_black" : "outline",
         size: "large",
-        width: 340,
+        width: 300,
         text: "signin_with",
         shape: "rectangular",
         logo_alignment: "left"
@@ -2006,9 +2049,12 @@
     });
 
     // Return trip: hand the home page its own re-entry wipe on the way out.
-    el.viewSite?.addEventListener("click", () => {
+    // The brand block in the bar is the same trip, so it gets the same marker.
+    function markReturn() {
       try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
-    });
+    }
+    el.viewSite?.addEventListener("click", markReturn);
+    el.brandHome?.addEventListener("click", markReturn);
 
     async function openConsole(viewer) {
       state.viewer = viewer;
