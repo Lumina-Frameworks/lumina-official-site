@@ -509,6 +509,21 @@ describe("admin.html wiring", () => {
     assert.match(html, /el\.editor\.addEventListener\("input", \(\) => \{ state\.dirty = true; \}\)/);
   });
 
+  test("the audit log is readable before the filters", () => {
+    // Five stacked controls filled the viewport before a single entry, so the
+    // filters collapse behind a toggle that sits beside the search field.
+    assert.match(html, /\.toolbar \{\s*\n\s*display: grid; grid-template-columns: minmax\(0, 1fr\) auto;/);
+    assert.match(html, /\.filters \{ display: grid; grid-column: 1 \/ -1; gap: 8px; \}/);
+    // The toggle stands alone as an icon until the row can fit its label.
+    assert.match(
+      html,
+      /@media \(max-width: 700px\) and \(min-width: 420px\) \{\s*\n\s*\.filters-toggle \.btn-label \{ display: inline; \}/
+    );
+    // A card is the summary plus one meta line, not four stacked blocks.
+    assert.match(html, /\.audit-card \{\s*\n\s*display: grid; gap: 5px;/);
+    assert.match(html, /\.a-meta \{[\s\S]*?font-size: 9\.5px;/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
