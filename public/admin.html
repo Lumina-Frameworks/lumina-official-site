@@ -722,19 +722,28 @@
 
     .list { max-height: min(64vh, 640px); overflow-y: auto; }
     @media (max-width: 1039px) { .list { max-height: 44vh; } }
-    /* The entry animation lives on the row's children, never on .row itself.
-       Animating the row would replay the whole list every time the selection
-       changes, which reads as a phantom page refresh. */
+
+    /* ---------------------------------------------------------------------
+       Project row
+       A grid, not a flex line: the rail is ~350px wide at every desktop size,
+       so title + meta + status badges never fit on one line. Three columns,
+       with a corner bookmark carrying the status instead of two text pills.
+       The entry animation lives on the row's children, never on .row itself:
+       animating the row would replay the whole list on every selection change,
+       which reads as a phantom page refresh.
+       --------------------------------------------------------------------- */
     .row {
-      position: relative; display: flex; align-items: center; gap: 12px;
-      padding: 11px 16px; border-bottom: 1px solid var(--line-color);
+      position: relative;
+      display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 2px 11px; align-items: center;
+      padding: 11px 12px 11px 16px; border-bottom: 1px solid var(--line-color);
       cursor: pointer; text-align: left; width: 100%; background: transparent;
       border-left: 0; border-right: 0; border-top: 0;
       clip-path: none; min-height: 0; animation: none;
       transition: background 0.16s;
     }
     .row::after { display: none; }
-    .row-sym, .row-main, .row-pills { animation: rowIn 0.42s var(--ease-out) both; }
+    .row-sym, .row-main, .row-badge { animation: rowIn 0.42s var(--ease-out) both; }
     @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
     .row:hover { background: var(--bg-soft); transform: none; }
     .row.is-active { background: var(--bg-soft); }
@@ -746,28 +755,41 @@
       animation: fadeIn 0.24s var(--ease-out) both;
     }
     .row-sym {
-      width: 36px; height: 36px; flex: none; display: grid; place-items: center; overflow: hidden;
+      grid-row: 1 / span 2;
+      width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden;
       font-family: var(--font-mono); font-size: 11px; color: var(--accent);
       background: var(--bg-soft); border: 1px solid var(--line-color);
       clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
     }
     .row-sym img { width: 100%; height: 100%; object-fit: cover; }
-    .row-main { min-width: 0; flex: 1; }
+    .row-main { grid-column: 2; min-width: 0; }
     .row-title { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-pills { display: flex; gap: 5px; flex: none; align-items: center; }
 
-    /* Narrow rail: the row is a grid so the title and the meta line each get a
-       full line, and the pills sit on their own below rather than fighting the
-       title for the same pixels. */
-    @media (max-width: 1039px) {
-      .row {
-        display: grid; grid-template-columns: 36px minmax(0, 1fr);
-        gap: 3px 11px; align-items: center; padding: 12px 14px;
-      }
-      .row-sym { grid-row: 1 / span 2; }
-      .row-main { grid-column: 2; }
-      .row-pills { grid-column: 2; }
+    /* Status bookmark in the top right: the shape does the work, so the row
+       needs no room for words. A draft shows nothing, so a glance down the
+       list only catches what is actually live.
+       The glyphs are filled or outlined through a custom property, not an
+       attribute: a presentation attribute on <use> cannot override the paths'
+       own fill, and the sprite's paths carry fill="none". */
+    .row-badge {
+      grid-column: 3; grid-row: 1 / span 2; align-self: start;
+      display: flex; gap: 4px; padding-top: 1px;
+    }
+    .row-badge .icon { width: 15px; height: 15px; display: block; }
+    .badge-live, .badge-feat { display: none; }
+    .row.is-live .badge-live { display: block; color: var(--success); }
+    .row.is-featured .badge-feat { display: block; color: var(--accent); }
+    .row-badge use path { fill: var(--fill, none); }
+
+    .row.is-live .badge-live .live-fill { display: inline; }
+    .row.is-live .badge-live .live-line { display: none; }
+    .row.is-featured .badge-feat .feat-fill { display: inline; }
+    .row.is-featured .badge-feat .feat-line { display: none; }
+    .row.is-live, .row.is-featured { --fill: currentColor; }
+
+    @media (max-width: 640px) {
+      .row { padding: 10px 10px 10px 14px; gap: 2px 9px; }
     }
 
     .pill {
@@ -1239,6 +1261,8 @@
     <g id="i-download"><path d="M12 4.4v11.8"/><path d="M7.6 11.8 12 16.2l4.4-4.4"/><path d="M4.6 19.4h14.8"/></g>
     <g id="i-clock"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 7.2V12l3.4 2"/></g>
     <g id="i-key"><path d="M14.6 14.6a5.2 5.2 0 1 1 3.7-3.7l2.1 2.1-2 2-1.6-1.6-2 2-1.6-1.6-1.8 1.8"/></g>
+    <g id="i-bookmark"><path d="M6.4 3.4h11.2v17.2L12 16.4l-5.6 4.2z"/></g>
+    <g id="i-star"><path d="M12 3.4l2.6 5.3 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.9z"/></g>
     <g id="i-sun"><path d="M12 16.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2Z"/><path d="M12 2.6v2M12 19.4v2M4.2 12h-2M21.8 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4"/></g>
     <g id="i-moon"><path d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.8 8.8 0 1 0 10.6 10.6Z"/></g>
     <g id="i-external"><path d="M14.2 4.6h5.2v5.2"/><path d="M19.4 4.6 11.6 12.4"/><path d="M18 13.6v5.8H4.6V6h5.8"/></g>
@@ -2408,16 +2432,28 @@
 
       el.list.innerHTML = list.map((project, index) => {
         const image = safeImage(project.image);
-        const pills =
-          (project.published ? '<span class="pill on">Live</span>' : '<span class="pill draft">Draft</span>') +
-          (project.featured ? '<span class="pill feat">Feat</span>' : "");
         const selected = state.current && state.current.slug === project.slug;
+        const status =
+          (project.published ? " is-live" : "") + (project.featured ? " is-featured" : "");
+        // The stamp is a labelled graphic: the tooltip names it for a pointer,
+        // <title> names it for a screen reader. Outline plus fill paths share
+        // one glyph, so the CSS can swap the fill state without a second sprite.
+        const stamp =
+          '<span class="row-badge">' +
+          '<svg class="icon badge-live" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Published">' +
+          '<title>Live</title><use href="#i-bookmark" class="live-line" fill="none" />' +
+          '<use href="#i-bookmark" class="live-fill" fill="currentColor" /></svg>' +
+          '<svg class="icon badge-feat" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Featured">' +
+          '<title>Featured</title><use href="#i-star" class="feat-line" fill="none" />' +
+          '<use href="#i-star" class="feat-fill" fill="currentColor" /></svg>' +
+          "</span>";
         // The stagger belongs on the row's children: they are the elements the
         // rowIn animation actually runs on.
         const delay = ' style="animation-delay:' + Math.min(index * 26, 320) + 'ms"';
         return (
-          '<button class="row' + (selected ? " is-active is-selected" : "") + '" data-slug="' +
-          escapeHtml(project.slug) + '" type="button"' + (selected ? ' aria-current="true"' : "") + ">" +
+          '<button class="row' + (selected ? " is-active is-selected" : "") + status +
+          '" data-slug="' + escapeHtml(project.slug) + '" type="button"' +
+          (selected ? ' aria-current="true"' : "") + ">" +
           '<span class="row-sym"' + delay + ">" +
           (image ? '<img src="' + escapeHtml(image) + '" alt="" />' : escapeHtml(project.symbol)) +
           "</span>" +
@@ -2425,7 +2461,7 @@
           '<span class="row-title">' + escapeHtml(project.title) + "</span>" +
           '<span class="row-sub">' + escapeHtml(project.category) + " · " + escapeHtml(project.year) + "</span>" +
           "</span>" +
-          '<span class="row-pills"' + delay + ">" + pills + "</span>" +
+          stamp +
           "</button>"
         );
       }).join("");

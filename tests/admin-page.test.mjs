@@ -210,7 +210,7 @@ describe("admin.html wiring", () => {
     const row = html.match(/\n    \.row \{[\s\S]*?\n    \}/);
     assert.ok(row, "no .row rule");
     assert.match(row[0], /animation: none;/);
-    assert.match(html, /\.row-sym, \.row-main, \.row-pills \{ animation: rowIn/);
+    assert.match(html, /\.row-sym, \.row-main, \.row-badge \{ animation: rowIn/);
 
     // renderList is only for new data or a changed filter, never a selection:
     // fresh fetch, search input, filter chip, and starting a new project.
@@ -220,15 +220,48 @@ describe("admin.html wiring", () => {
     assert.equal(calls, 4, "an unexpected renderList call site appeared");
   });
 
-  test("the project row stacks on a narrow rail", () => {
-    // At 390px the pills sat on top of the year text and the title clipped to
-    // "A.K.A.R.I.PRODUCT · 20LIVE".
-    const narrow = html.slice(html.indexOf("@media (max-width: 1039px) {\n      .row {"));
-    assert.ok(narrow.length > 0, "no narrow-rail rule for .row");
-    const block = narrow.slice(0, narrow.indexOf("\n    }"));
-    assert.match(block, /grid-template-columns: 36px minmax\(0, 1fr\)/);
-    assert.match(block, /\.row-sym \{ grid-row: 1 \/ span 2; \}/);
-    assert.match(block, /\.row-pills \{ grid-column: 2; \}/);
+  test("the project row is a grid with a status bookmark", () => {
+    // A flex line never fit: the rail is ~350px at every desktop size, so the
+    // title, meta and badges fought for the same pixels and overlapped.
+    const row = html.match(/\n    \.row \{[\s\S]*?\n    \}/);
+    assert.ok(row, "no .row rule");
+    assert.match(row[0], /display: grid; grid-template-columns: 36px minmax\(0, 1fr\) auto;/);
+    assert.ok(!/display: flex/.test(row[0]), "the row went back to a flex line");
+
+    // The grid belongs in the base rule: the constraint is the rail width,
+    // which does not change with the viewport.
+    assert.ok(
+      !/max-width: 1039px\) \{\s*\n?\s*\.row \{/.test(html),
+      "the row layout is keyed to the viewport instead of the rail"
+    );
+
+    // Symbol spans both rows, bookmark sits top right.
+    assert.match(html, /\.row-sym \{[\s\S]*?grid-row: 1 \/ span 2;/);
+    assert.match(html, /\.row-badge \{[\s\S]*?grid-column: 3; grid-row: 1 \/ span 2;/);
+
+    // Text pills are gone from the list; the bookmark carries the state.
+    assert.ok(!html.includes("row-pills"), "the old pill row is still in the CSS");
+    assert.match(html, /\.badge-live, \.badge-feat \{ display: none; \}/);
+    assert.match(html, /\.row\.is-live \.badge-live \{ display: block; color: var\(--success\); \}/);
+    assert.match(html, /\.row\.is-featured \.badge-feat \{ display: block; color: var\(--accent\); \}/);
+  });
+
+  test("the status bookmarks are named, not just coloured", () => {
+    assert.ok(html.includes('id="i-bookmark"'), "no bookmark glyph");
+    assert.ok(html.includes('id="i-star"'), "no star glyph");
+    assert.match(html, /aria-label="Published"/);
+    assert.match(html, /aria-label="Featured"/);
+    assert.match(html, /<title>Live<\/title>/);
+    assert.match(html, /<title>Featured<\/title>/);
+    // Filled on, outlined off, so the two states are distinguishable.
+    assert.match(html, /\.row\.is-live \.badge-live \.live-fill \{ display: inline; \}/);
+    assert.match(html, /\.row\.is-live \.badge-live \.live-line \{ display: none; \}/);
+  });
+
+  test("the staggered entry animation still animates row children", () => {
+    assert.match(html, /\.row-sym, \.row-main, \.row-badge \{ animation: rowIn/);
+    assert.match(html, /class="row-sym"' \+ delay/);
+    assert.match(html, /class="row-main"' \+ delay/);
   });
 
   test("the bar actions are icon-only squares with real labels", () => {
