@@ -372,7 +372,14 @@
       40% { opacity: 0.6; }
       100% { transform: translateX(100%); opacity: 0; }
     }
-    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    /* When the console is open, the bar reveals the operator chip and the two
+       actions. Keyed on a class on the bar itself, not on `hidden`, so the
+       phone layout can hide them without fighting an inline class toggle:
+       a `.bar #id { display: none }` rule would have beaten the JS that shows
+       them, breaking desktop instead of phone. */
+    .bar #operator-chip, .bar #quick-logout, .bar #view-site { display: none; }
+    .bar.is-live #operator-chip { display: flex; }
+    .bar.is-live #quick-logout, .bar.is-live #view-site { display: inline-flex; }
     /* The whole brand block is the home link, so it needs to read as one. */
     .brand-link {
       display: flex; align-items: center; gap: 11px; min-width: 0;
@@ -472,6 +479,12 @@
       .panel-bar .spacer, .panel-bar #refresh { display: none; }
       .tab-ink { display: none; }
 
+      /* The bar keeps only the hamburger, the brand and the theme button: the
+         other two destinations are one tap away in the drawer, and the operator
+         line is already its footer. */
+      .bar #quick-logout, .bar #view-site { display: none; }
+      .bar .operator { display: none; }
+
       .drawer { display: block; }
       .drawer-veil {
         display: block;
@@ -496,13 +509,15 @@
 
       .drawer-head {
         display: flex; align-items: center; gap: 11px;
-        padding: 14px 16px; border-bottom: 1px solid var(--line-color);
+        padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--line-color);
       }
-      .drawer-head .brand-mark { width: 30px; height: 30px; }
-      .drawer-head .brand-mark img { width: 19px; height: 19px; }
+      .drawer-head .drawer-eyebrow {
+        font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.2em;
+        text-transform: uppercase; color: var(--ink-faint);
+      }
       .drawer-head h2 {
-        font-family: var(--font-display); font-size: 0.95rem; font-weight: 700;
-        flex: 1;
+        font-family: var(--font-display); font-size: 1.05rem; font-weight: 700;
+        flex: 1; min-width: 0;
       }
       .drawer-nav { display: grid; gap: 4px; padding: 12px; }
       .drawer-link {
@@ -1431,9 +1446,36 @@
       html.from-core .console-enter-scan { animation: none !important; }
     }
 
-    /* Theme cross-fade. Applied for one beat by switchTheme(). */
-    html.is-theming body { opacity: 0.45; }
-    body { transition: opacity 0.18s ease; }
+    /* =====================================================================
+       Theme cross-fade
+       Colours change wholesale: the page, every panel, the canvas, and the
+       texture PNG, which cannot be interpolated at all. Dropping the whole
+       document to partial opacity made it flash rather than fade.
+
+       Instead an opaque veil in the theme you are leaving covers the frame,
+       the theme swaps underneath it, and the veil fades out over the new one.
+       A genuinely smooth hand-off, with no flash of an intermediate tint.
+       ===================================================================== */
+    .theme-veil {
+      position: fixed; inset: 0; z-index: 29999;
+      pointer-events: none; opacity: 0;
+      background: var(--bg);
+      transition: opacity 0.42s var(--ease-out) 0.08s;
+    }
+    .theme-veil.is-on {
+      opacity: 1;
+      /* No yield while rising: the veil is opaque for the whole swap. */
+      transition: opacity 0.24s var(--ease-out) 0s;
+    }
+    /* Everything that is a plain colour interpolates on its own; the veil is
+       only there to hide what cannot (the texture and the mesh). */
+    body, .bar, .frame, .tabs, .toast, .sheet, .drawer-panel, .operator, .search,
+    .row-sym, .drop, .drop-preview, .term, .avatar, .brand-mark, .gate-card-inner,
+    .console-enter-status, .signout-card, .audit-card, .tile-icon {
+      transition-property: background-color, border-color, color, box-shadow, opacity;
+      transition-duration: 0.42s;
+      transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
   </style>
 </head>
 <body>
@@ -1490,6 +1532,9 @@
   </div>
 </div>
 
+<!-- ======================= theme cross-fade veil ======================= -->
+<div class="theme-veil" id="theme-veil" aria-hidden="true"></div>
+
 <!-- ======================= sign-out sequence ======================= -->
 <div id="signout" aria-hidden="true">
   <div class="signout-layer signout-veil"></div>
@@ -1543,7 +1588,7 @@
 
   <span class="bar-spacer"></span>
 
-  <div class="operator hidden" id="operator-chip">
+  <div class="operator" id="operator-chip">
     <span class="avatar" id="operator-avatar">--</span>
     <div class="operator-text">
       <div class="operator-mail" id="bar-user"></div>
@@ -1551,14 +1596,14 @@
     <span class="role-chip" id="bar-role">viewer</span>
   </div>
 
-  <button class="ghost tiny icon-only hidden" id="quick-logout" type="button" aria-label="Sign out" title="Sign out">
+  <button class="ghost tiny icon-only" id="quick-logout" type="button" aria-label="Sign out" title="Sign out">
     <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-logout"/></svg>
   </button>
   <button class="ghost tiny icon-only is-theme" id="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
     <svg class="icon icon-sm icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sun"/></svg>
     <svg class="icon icon-sm icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-moon"/></svg>
   </button>
-  <a class="btn tiny icon-only hidden" href="./index.html" id="view-site" aria-label="View site" title="View the public site">
+  <a class="btn tiny icon-only" href="./index.html" id="view-site" aria-label="View site" title="View the public site">
     <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external"/></svg>
   </a>
 </header>
@@ -1568,10 +1613,10 @@
   <div class="drawer-veil" id="drawer-veil"></div>
   <aside class="drawer-panel" id="drawer-panel" aria-label="Console sections" aria-hidden="true">
     <div class="drawer-head">
-      <span class="brand-mark">
-        <img id="drawer-logo" src="./assets/lumina-logo-dark.png" alt="" />
-      </span>
-      <h2>Console</h2>
+      <div style="min-width:0; flex:1;">
+        <div class="drawer-eyebrow">// ADMIN_CONSOLE</div>
+        <h2 id="drawer-section">Overview</h2>
+      </div>
       <button class="ghost tiny icon-only" id="drawer-close" type="button" aria-label="Close navigation">
         <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg>
       </button>
@@ -1580,21 +1625,21 @@
     <nav class="drawer-nav">
       <button class="drawer-link" data-goto="overview" type="button">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-gauge"/></svg>
-        Overview
+        <span class="drawer-label">Overview</span>
       </button>
       <button class="drawer-link" data-goto="projects" type="button">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-grid"/></svg>
-        Projects
+        <span class="drawer-label">Projects</span>
         <span class="tab-badge" id="drawer-badge-projects" hidden>0</span>
       </button>
       <button class="drawer-link" data-goto="admins" type="button">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-users"/></svg>
-        Admin manager
+        <span class="drawer-label">Admin manager</span>
         <span class="tab-badge" id="drawer-badge-admins" hidden>0</span>
       </button>
       <button class="drawer-link" data-goto="audit" type="button">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scroll"/></svg>
-        Audit log
+        <span class="drawer-label">Audit log</span>
         <span class="tab-badge" id="drawer-badge-audit" hidden>0</span>
       </button>
     </nav>
@@ -2103,8 +2148,9 @@
     const el = {
       /* chrome */
       gate: $("gate"), console: $("console"), barStatus: $("bar-status"),
-      operatorChip: $("operator-chip"), avatar: $("operator-avatar"), user: $("bar-user"),
+      avatar: $("operator-avatar"), user: $("bar-user"),
       role: $("bar-role"), logout: $("quick-logout"), viewSite: $("view-site"),
+      bar: document.querySelector(".bar"), themeVeil: $("theme-veil"),
       themeToggle: $("theme-toggle"), brandLogo: $("brand-logo"), brandHome: $("brand-home"),
       refresh: $("refresh"),
       tabInk: $("tab-ink"), toasts: $("toasts"),
@@ -2141,7 +2187,7 @@
       /* navigation */
       navToggle: $("nav-toggle"), drawerPanel: $("drawer-panel"), drawerVeil: $("drawer-veil"),
       drawerClose: $("drawer-close"), drawerRefresh: $("drawer-refresh"), drawerWho: $("drawer-who"),
-      drawerLogo: $("drawer-logo"), drawerSite: $("drawer-site"),
+      drawerSection: $("drawer-section"), drawerSite: $("drawer-site"),
       /* audit */
       auditCards: $("audit-cards"), filtersToggle: $("filters-toggle"), filters: $("audit-filters"),
       /* gate */
@@ -2247,7 +2293,7 @@
       const mark = dark ? "./assets/lumina-logo-dark.png" : "./assets/lumina-logo-light.png";
 
       if (el.brandLogo) el.brandLogo.src = mark;
-      if (el.drawerLogo) el.drawerLogo.src = mark;
+
       if (el.idleMark) el.idleMark.src = mark;
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute("content", dark ? "#05060a" : "#eef3f8");
@@ -2257,28 +2303,41 @@
     }
 
     /**
-     * Theme swap with a short cross-fade. Several layers change colour at once
-     * (canvas, texture PNG, glows), and snapping between them reads as a flash.
+     * Theme swap behind an opaque veil.
+     *
+     * Several layers change colour at once and two of them cannot interpolate
+     * at all: the alpha texture PNG, and the canvas mesh, which snaps because it
+     * is drawn in JS. A veil in the outgoing theme covers the frame, the theme
+     * changes underneath it, then the veil fades out over the new one. No flash
+     * of an intermediate tint, no half-faded panels.
      */
     function switchTheme() {
       const root = document.documentElement;
       const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      if (reduce) {
-        applyTheme(next);
-      } else {
-        root.classList.add("is-theming");
-        setTimeout(() => {
-          applyTheme(next);
-          setTimeout(() => root.classList.remove("is-theming"), 190);
-        }, 130);
-      }
+      // The preference is written either way; only the animation is optional.
       try { localStorage.setItem("lumina-theme", next); } catch (_) {}
       el.themeToggle.setAttribute(
         "aria-label",
         next === "dark" ? "Switch to light theme" : "Switch to dark theme"
       );
+
+      if (reduce) {
+        applyTheme(next);
+        return;
+      }
+
+      // The veil is already painted in the colour of the theme being left.
+      el.themeVeil.classList.add("is-on");
+      setTimeout(() => {
+        applyTheme(next);
+        // One frame with the new theme in place before the veil is released,
+        // or the release can land before the browser has repainted.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => el.themeVeil.classList.remove("is-on"));
+        });
+      }, 260);
     }
 
     el.themeToggle.addEventListener("click", switchTheme);
@@ -2411,20 +2470,19 @@
     });
 
     // Return trip: hand the home page its own re-entry wipe on the way out.
-    // The brand block in the bar is the same trip, so it gets the same marker.
+    // The brand block and the drawer's site link are the same trip.
     function markReturn() {
       try { sessionStorage.setItem("lumina-enter", "archive"); } catch (_) {}
     }
     el.viewSite?.addEventListener("click", markReturn);
     el.brandHome?.addEventListener("click", markReturn);
-
     async function openConsole(viewer) {
       state.viewer = viewer;
       el.gate.classList.add("hidden");
       el.console.classList.remove("hidden");
-      el.operatorChip.classList.remove("hidden");
-      el.logout.classList.remove("hidden");
-      el.viewSite.classList.remove("hidden");
+      // Reveals the operator chip and the bar actions through CSS, so the phone
+      // layout can hide them without fighting this line.
+      el.bar.classList.add("is-live");
       el.user.textContent = viewer.email;
       el.drawerWho.textContent = viewer.email + " · " + U.roleLabel(viewer.role);
       el.role.textContent = U.roleLabel(viewer.role);
@@ -2454,6 +2512,9 @@
     function syncTabInk() {
       const active = document.querySelector('.tab[aria-selected="true"]');
       if (!active || !el.tabInk) return;
+      // On a phone the strip is display:none, so every measurement is 0 and the
+      // ink would snap to the left edge. Leave it alone when it is not rendered.
+      if (!active.offsetParent) return;
       const ink = el.tabInk;
       ink.style.width = active.offsetWidth + "px";
       ink.style.transform = "translateX(" + active.offsetLeft + "px)";
@@ -2515,8 +2576,10 @@
 
     function syncDrawer() {
       document.querySelectorAll(".drawer-link").forEach((link) => {
-        if (link.dataset.goto === state.activeTab) link.setAttribute("aria-current", "page");
+        const active = link.dataset.goto === state.activeTab;
+        if (active) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
+        if (active) el.drawerSection.textContent = link.querySelector(".drawer-label").textContent;
       });
     }
 

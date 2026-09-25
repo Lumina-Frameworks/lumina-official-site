@@ -156,9 +156,23 @@ describe("admin.html wiring", () => {
     assert.match(html, /el\.logout\.addEventListener\("click", \(\) => \{/);
   });
 
-  test("the theme toggle swaps both logo marks and fades the swap", () => {
+  test("the theme swap cross-fades behind an opaque veil", () => {
     assert.match(html, /function switchTheme\(\)/);
-    assert.match(html, /html\.is-theming body \{ opacity: 0\.45; \}/);
+    // An opaque veil in the outgoing theme covers the swap: the texture PNG and
+    // the JS-drawn mesh cannot interpolate, so a plain opacity dip on the body
+    // flashed rather than faded.
+    assert.ok(html.includes('id="theme-veil"'), "no cross-fade veil");
+    assert.match(html, /\.theme-veil \{[\s\S]*?background: var\(--bg\);/);
+    assert.match(html, /\.theme-veil\.is-on \{[\s\S]*?opacity: 1;/);
+    assert.ok(!html.includes("is-theming"), "the old opacity-dip rules are back");
+    assert.match(html, /el\.themeVeil\.classList\.add\("is-on"\)/);
+    // Two frames between the swap and the release, so the repaint has landed.
+    assert.match(
+      html,
+      /requestAnimationFrame\(\(\) => \{\s*\n\s*requestAnimationFrame\(\(\) => el\.themeVeil\.classList\.remove\("is-on"\)\)/
+    );
+    // Reduced motion still switches, just without the animation.
+    assert.match(html, /if \(reduce\) \{\s*\n\s*applyTheme\(next\);\s*\n\s*return;/);
     assert.match(html, /if \(el\.idleMark\) el\.idleMark\.src = mark;/);
     // The preference is read before first paint, so there is no dark flash.
     assert.match(html, /localStorage\.getItem\("lumina-theme"\)/);
@@ -392,6 +406,25 @@ describe("admin.html wiring", () => {
     assert.match(html, /el\.dropPreview\.classList\.add\("is-missing"\)/);
     assert.match(html, /\.drop-preview\.is-missing \{/);
     assert.match(html, /This image URL does not load/);
+  });
+
+  test("a phone bar keeps only the hamburger, brand and theme button", () => {
+    // The operator line and the two actions are one tap away in the drawer, and
+    // the operator line is already the drawer's footer.
+    assert.match(html, /\.bar #quick-logout, \.bar #view-site \{ display: none; \}/);
+    assert.match(html, /\.bar \.operator \{ display: none; \}/);
+    // Keyed on a class on the bar, NOT on `hidden`: openConsole reveals these by
+    // removing `hidden`, so a plain CSS hide would have broken desktop instead.
+    assert.match(html, /\.bar\.is-live #operator-chip \{ display: flex; \}/);
+    assert.match(html, /el\.bar\.classList\.add\("is-live"\)/);
+    assert.ok(!/el\.(logout|viewSite|operatorChip)\.classList\.remove\("hidden"\)/.test(html), "the JS still toggles hidden");
+  });
+
+  test("the ink indicator survives a hidden tab strip", () => {
+    // On a phone the strip is display:none, so offsetWidth is 0 and the ink
+    // would snap to the left edge under a strip that is not even rendered.
+    assert.match(html, /\.tabs \{ display: none; \}/);
+    assert.match(html, /if \(!active\.offsetParent\) return;/);
   });
 
   test("no leftover debug output ships in the page", () => {
