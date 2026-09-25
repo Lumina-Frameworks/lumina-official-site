@@ -21,6 +21,8 @@ import { onRequestGet as publicProjects } from "../functions/api/projects.js";
 import { onRequestGet as adminList, onRequestPost as adminCreate } from "../functions/api/admin/projects/index.js";
 import { onRequestPut as adminUpdate, onRequestDelete as adminDelete } from "../functions/api/admin/projects/[slug].js";
 import { onRequestPost as adminUpload } from "../functions/api/admin/upload.js";
+import { onRequestGet as mediaGet } from "../functions/api/media/[[path]].js";
+import { onRequestGet as mediaList } from "../functions/api/admin/media/index.js";
 import { onRequestGet as authMe } from "../functions/api/auth/me.js";
 import * as contactModule from "../functions/api/contact.js";
 import { onRequestPost as contactPost } from "../functions/api/contact.js";
@@ -54,12 +56,41 @@ function makeD1(sqlite) {
   return { prepare: (sql) => new Statement(sql) };
 }
 
+/**
+ * Minimal R2 stand-in. `get` and `list` matter as much as `put`: the media
+ * route serves objects back out and the admin listing reads the bucket, and the
+ * original fake only supported writes, which is how a broken media path stayed
+ * invisible.
+ */
 function fakeR2() {
   const objects = new Map();
   return {
     objects,
     async put(key, value, options) {
-      objects.set(key, { value, options });
+      const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : value;
+      objects.set(key, {
+        value: bytes,
+        options,
+        size: bytes?.byteLength ?? 0,
+        httpEtag: `"${key.replace(/[^a-z0-9]/gi, "")}"`,
+        uploaded: new Date("2026-01-01T00:00:00Z")
+      });
+    },
+    async get(key) {
+      const found = objects.get(key);
+      if (!found) return null;
+      return {
+        body: found.value,
+        size: found.size,
+        httpEtag: found.httpEtag,
+        httpMetadata: found.options?.httpMetadata || {}
+      };
+    },
+    async list({ prefix = "", limit = 1000 } = {}) {
+      const all = [...objects.entries()]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, value]) => ({ key, size: value.size, uploaded: value.uploaded, etag: value.httpEtag }));
+      return { objects: all.slice(0, limit), truncated: all.length > limit };
     }
   };
 }
@@ -80,7 +111,7 @@ before(() => {
   env = {
     DB: makeD1(sqlite),
     MEDIA: fakeR2(),
-    MEDIA_BASE_URL: "https://media.lumina-frameworks.com",
+    MEDIA_BASE_URL: "https://lumina-frameworks.com/api/media",
     AUTH_SECRET,
     ADMIN_EMAILS: `${ADMIN_EMAIL},aliffprime3@gmail.com`,
     GOOGLE_CLIENT_ID: "test-client-id.apps.googleusercontent.com"
@@ -99,8 +130,9 @@ async function sessionCookieFor(email, secret = AUTH_SECRET) {
   return `${SESSION_COOKIE}=${token}`;
 }
 
-function req(method, url, { cookie, body, headers } = {}) {
+function req(method, url, { cookie, body, headers, userAgent } = {}) {
   const init = { method, headers: { ...headers } };
+  if (userAgent) init.headers["User-Agent"] = userAgent;
   if (cookie) init.headers.Cookie = cookie;
   if (body !== undefined) {
     init.headers["Content-Type"] = "application/json";
@@ -495,13 +527,27 @@ describe("POST /api/admin/upload", () => {
     return new Request(`${BASE}/api/admin/upload`, { method: "POST", headers, body });
   }
 
-  test("stores a PNG in R2 and returns a public URL", async () => {
+  test("stores a PNG in R2 and returns a URL that actually resolves", async () => {
     const response = await adminUpload({ request: uploadRequest(pngFile()), env });
     assert.equal(response.status, 201);
     const body = await response.json();
-    assert.match(body.url, /^https:\/\/media\.lumina-frameworks\.com\/projects\/shot-[0-9a-f]{8}\.png$/);
+    // The URL must point at the media route, not at a bucket host that was
+    // never given a public path.
+    assert.match(body.url, /^https:\/\/lumina-frameworks\.com\/api\/media\/projects\/shot-[0-9a-f]{8}\.png$/);
     assert.equal(body.type, "image/png");
     assert.ok(env.MEDIA.objects.has(body.key), "object landed in the bucket");
+
+    // And the round trip has to work: fetch it back through the route.
+    const served = await mediaGet({
+      request: req("GET", `/api/media/${body.key}`),
+      env,
+      params: { path: body.key.split("/") }
+    });
+    assert.equal(served.status, 200, "the uploaded image is served back");
+    assert.equal(served.headers.get("Content-Type"), "image/png");
+    assert.match(served.headers.get("Cache-Control"), /immutable/);
+    assert.equal(served.headers.get("X-Content-Type-Options"), "nosniff");
+    assert.equal((await served.arrayBuffer()).byteLength, 32);
   });
 
   test("rejects an unauthenticated upload", async () => {
@@ -520,5 +566,85 @@ describe("POST /api/admin/upload", () => {
   test("rejects an oversized image", async () => {
     const response = await adminUpload({ request: uploadRequest(pngFile(5 * 1024 * 1024 + 64)), env });
     assert.equal(response.status, 413);
+  });
+});
+
+/* ---------- media route ---------- */
+
+describe("GET /api/media/:key", () => {
+  const KEY = "projects/serve-me-abcd1234.png";
+
+  before(async () => {
+    const png = new Uint8Array(16);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    await env.MEDIA.put(KEY, png.buffer, { httpMetadata: { contentType: "image/png" } });
+  });
+
+  function serve(path, headers) {
+    return mediaGet({
+      request: req("GET", `/api/media/${path}`, { headers }),
+      env,
+      params: { path: String(path).split("/") }
+    });
+  }
+
+  test("streams the object with long-lived cache headers", async () => {
+    const response = await serve(KEY);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Content-Type"), "image/png");
+    assert.match(response.headers.get("Cache-Control"), /max-age=31536000/);
+    assert.equal(response.headers.get("Content-Security-Policy"), "default-src 'none'; sandbox");
+  });
+
+  test("answers a matching If-None-Match with 304", async () => {
+    const first = await serve(KEY);
+    const etag = first.headers.get("ETag");
+    assert.ok(etag, "no ETag to revalidate with");
+    const second = await serve(KEY, { "If-None-Match": etag });
+    assert.equal(second.status, 304);
+  });
+
+  test("404s a key that is not in the bucket", async () => {
+    const response = await serve("projects/does-not-exist-abcd1234.png");
+    assert.equal(response.status, 404);
+  });
+
+  test("refuses a traversal attempt", async () => {
+    for (const path of ["../secrets.png", "projects/../../etc/passwd.png"]) {
+      const response = await mediaGet({
+        request: req("GET", "/api/media/x"),
+        env,
+        params: { path: path.split("/") }
+      });
+      assert.equal(response.status, 400, `allowed: ${path}`);
+    }
+  });
+
+  test("refuses a key whose extension is not a served image type", async () => {
+    await env.MEDIA.put("projects/payload.html", new Uint8Array(4).buffer, {});
+    const response = await serve("projects/payload.html");
+    assert.equal(response.status, 415);
+  });
+});
+
+/* ---------- media listing ---------- */
+
+describe("GET /api/admin/media", () => {
+  test("lists what is actually in the bucket", async () => {
+    const cookie = await sessionCookieFor(ADMIN_EMAIL);
+    const response = await mediaList({
+      request: req("GET", "/api/admin/media?prefix=projects/", { cookie }),
+      env
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.ok(body.count > 0, "bucket listing came back empty");
+    assert.ok(body.objects.every((item) => item.key.startsWith("projects/")));
+    assert.ok(body.objects.every((item) => typeof item.size === "number"));
+  });
+
+  test("needs admin", async () => {
+    const response = await mediaList({ request: req("GET", "/api/admin/media"), env });
+    assert.equal(response.status, 401);
   });
 });

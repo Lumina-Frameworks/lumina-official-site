@@ -997,6 +997,19 @@
     }
     .drop-preview img { width: 100%; height: 100%; object-fit: cover; }
     .drop-preview span { font-family: var(--font-mono); font-size: 16px; color: var(--ink-faint); }
+    /* A stored URL that does not resolve used to show the browser's torn-page
+       glyph, which reads as a broken site. Say what happened instead. */
+    .drop-preview.is-missing {
+      display: grid; place-items: center; gap: 3px;
+      border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+      background: color-mix(in srgb, var(--danger) 8%, transparent);
+      color: var(--danger);
+    }
+    .drop-preview.is-missing .icon { width: 16px; height: 16px; }
+    .drop-preview.is-missing small {
+      font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.06em;
+      text-transform: uppercase; text-align: center; line-height: 1.2;
+    }
     .drop-text { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); word-break: break-all; }
     .drop strong { display: block; font-family: var(--font-body); font-size: 13px; color: var(--ink); font-weight: 500; margin-bottom: 3px; }
 
@@ -2905,9 +2918,27 @@
 
     function renderPreview() {
       const src = safeImage(state.imageUrl);
-      el.dropPreview.innerHTML = src
-        ? '<img src="' + escapeHtml(src) + '" alt="" />'
-        : '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-image"/></svg>';
+      const placeholder =
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-image"/></svg>';
+
+      el.dropPreview.classList.remove("is-missing");
+      if (!src) {
+        el.dropPreview.innerHTML = placeholder;
+      } else {
+        const img = new Image();
+        img.alt = "";
+        img.addEventListener("error", () => {
+          el.dropPreview.classList.add("is-missing");
+          el.dropPreview.innerHTML =
+            '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-alert"/></svg>' +
+            "<small>not reachable</small>";
+          el.imageHint.textContent =
+            "This image URL does not load. Re-upload the file, or check that media hosting is configured.";
+        });
+        img.src = src;
+        el.dropPreview.innerHTML = "";
+        el.dropPreview.appendChild(img);
+      }
       el.dropText.textContent = state.imageUrl || "PNG, JPEG, or WebP. Max 5MB.";
       el.imageHint.textContent = state.imageUrl ? "" : "No image yet. The card falls back to the symbol tile.";
     }

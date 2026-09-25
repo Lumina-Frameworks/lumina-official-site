@@ -158,6 +158,8 @@ Projects live in D1 and are edited at `/admin.html`. The console is tabbed:
 | `GET/POST /api/admin/projects` | viewer / admin | List all / create |
 | `PUT/DELETE /api/admin/projects/:slug` | admin | Update / unpublish (`?hard=1` to delete) |
 | `POST /api/admin/upload` | admin | PNG/JPEG/WebP → R2 |
+| `GET /api/media/:key` | public | Streams an uploaded image out of R2 |
+| `GET /api/admin/media` | admin | Lists what is actually in the bucket |
 | `GET/POST /api/admin/members` | owner | Roster / grant access |
 | `PUT/DELETE /api/admin/members/:email` | owner | Re-role, suspend / remove |
 | `GET /api/admin/audit` | admin | Filtered trail (`?format=csv` to download) |
@@ -239,8 +241,28 @@ needs no redeploy.
 In Google Cloud Console, add `https://lumina-frameworks.com` and
 `http://127.0.0.1:8788` as **authorised JavaScript origins** on that client ID.
 
-Finally, give the R2 bucket a custom domain (`media.lumina-frameworks.com`) so
-uploaded images are served straight from Cloudflare's CDN.
+### Uploaded images
+
+Uploads land in the `lumina-media` R2 bucket. A bucket is private until it is
+given a public path, and by default this project serves those objects through
+the Function at `functions/api/media/[[path]].js`, which streams them from R2
+and lets Cloudflare cache the response at the edge. `MEDIA_BASE_URL` in
+`wrangler.toml` points at that route.
+
+To serve straight from the CDN instead, attach a custom domain to the bucket
+(Cloudflare dashboard → R2 → `lumina-media` → Settings → Custom Domains, e.g.
+`media.lumina-frameworks.com`) and set:
+
+```toml
+MEDIA_BASE_URL = "https://media.lumina-frameworks.com"
+```
+
+No code change is needed either way. The bucket's `r2.dev` URL is not used,
+because `wrangler` cannot enable it and a private bucket answers those requests
+with a 500 rather than a useful error.
+
+`GET /api/admin/media` lists what is actually in the bucket, which is the
+quickest way to tell an upload problem from a serving problem.
 
 ---
 
@@ -328,7 +350,7 @@ npm run test:direct    # same tests, run in-process (no child processes)
 | File | Covers |
 | --- | --- |
 | `tests/projects-auth.test.mjs` | Input validation, URL/image injection guards, session signing, roster membership, Lumi's prompt |
-| `tests/api.test.mjs` | The real route handlers against real SQLite: schema, seed, public feed, auth guard, CRUD, R2 upload |
+| `tests/api.test.mjs` | The real route handlers against real SQLite: schema, seed, public feed, auth guard, CRUD, R2 upload, and the media route's round trip |
 | `tests/auth-google.test.mjs` | Google ID token verification: signature, `aud`/`iss`/`exp`, `alg:none` downgrade, attacker keys |
 | `tests/chat.test.mjs` | That the chat proxy builds Lumi's prompt from D1 rather than the fallback list |
 | `tests/frontend.test.mjs` | The public pages' guards and the console's client helpers: `escapeHtml`, `safeUrl`, `safeImage`, payload normalisation, role checks, timestamp formatting, CSV building |

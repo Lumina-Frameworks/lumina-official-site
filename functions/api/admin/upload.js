@@ -92,7 +92,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Could not store the image.", detail: String(err?.message || err) }, 500);
   }
 
-  const base = String(env.MEDIA_BASE_URL || "https://media.lumina-frameworks.com").replace(/\/+$/, "");
+  const base = String(env.MEDIA_BASE_URL || "https://lumina-frameworks.com/api/media").replace(/\/+$/, "");
   const url = `${base}/${key}`;
 
   const context = await auditContext(request, env);

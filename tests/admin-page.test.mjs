@@ -385,6 +385,15 @@ describe("admin.html wiring", () => {
     assert.match(block, /\.drawer-veil \{\s*\n\s*display: block;/);
   });
 
+  test("a stored image URL that does not resolve says so", () => {
+    // The browser's torn-page glyph reads as a broken site, which is exactly
+    // what a dead media host looked like.
+    assert.match(html, /function renderPreview\(\)[\s\S]*?addEventListener\("error"/);
+    assert.match(html, /el\.dropPreview\.classList\.add\("is-missing"\)/);
+    assert.match(html, /\.drop-preview\.is-missing \{/);
+    assert.match(html, /This image URL does not load/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

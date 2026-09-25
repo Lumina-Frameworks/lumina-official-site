@@ -11,7 +11,16 @@ OPENROUTER_MODEL = "deepseek/deepseek-v4-flash"
 OPENROUTER_REASONING = "medium"
 SITE_URL = "https://lumina-frameworks.com"
 CONTACT_FROM = "Lumina Frameworks <hello@lumina-frameworks.com>"
-MEDIA_BASE_URL = "https://media.lumina-frameworks.com"
+# Uploads are served by the Function at functions/api/media/[[path]].js, which
+# streams the R2 object and lets Cloudflare cache it at the edge.
+#
+# A bucket is private until it is given a public path, and neither the
+# media.lumina-frameworks.com custom domain nor the bucket's r2.dev URL was ever
+# enabled, so every URL handed back before this pointed at a host that did not
+# resolve. Once a custom domain is attached to the bucket in the dashboard,
+# point this at it (MEDIA_BASE_URL = "https://media.lumina-frameworks.com") and
+# the Function stops being used. No code change needed either way.
+MEDIA_BASE_URL = "https://lumina-frameworks.com/api/media"
 
 # Secrets are NOT stored here. Set in Cloudflare dashboard (Pages > Settings > Variables and Secrets):
 #   OPENROUTER_API_KEY, RESEND_API_KEY, GOOGLE_CLIENT_ID, AUTH_SECRET, ADMIN_EMAILS
