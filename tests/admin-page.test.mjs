@@ -258,6 +258,29 @@ describe("admin.html wiring", () => {
     assert.match(html, /startingTheme === "dark" \? "Switch to light theme" : "Switch to dark theme"/);
   });
 
+  test("the light theme dims the backdrop instead of inverting it", () => {
+    // A bright canvas needs the layers pulled down and the panels made solid,
+    // or the cards dissolve into the field behind them.
+    for (const rule of [
+      '[data-theme="light"] #neural-canvas { opacity: 0.5; }',
+      '[data-theme="light"] .backdrop-grid { opacity: 0.32; }',
+      '[data-theme="light"] .scanlines { opacity: 0.14; }'
+    ]) {
+      assert.ok(html.includes(rule), `missing: ${rule}`);
+    }
+    assert.match(html, /\[data-theme="light"\] \.backdrop-texture \{[\s\S]*?opacity: 0\.34; mix-blend-mode: multiply;/);
+    assert.match(html, /\[data-theme="light"\] \.backdrop-vignette \{/);
+    // Panels go opaque, and gain a shadow to replace the depth they lost.
+    const lightFrame = html.match(/\[data-theme="light"\] \.frame \{[\s\S]*?\n    \}/);
+    assert.ok(lightFrame, "no light-theme .frame rule");
+    assert.match(lightFrame[0], /background: var\(--bg-panel\);/);
+    assert.match(lightFrame[0], /box-shadow:/);
+    // The base rule keeps its translucency for dark theme.
+    assert.match(html, /\.frame \{ background: color-mix\(in srgb, var\(--bg-panel\) 93%, transparent\); \}/);
+    // Neutral base lifted off pure white.
+    assert.match(html, /--bg: #dfe6ef;/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

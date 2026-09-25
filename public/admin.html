@@ -52,11 +52,11 @@
       --sheen: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.13) 48%, transparent 76%);
     }
     [data-theme="light"] {
-      --bg: #eef3f8; --bg-elev: #e6edf5; --bg-panel: #f7fafc; --bg-soft: #eef4fa;
-      --bg-glass: rgba(238, 243, 248, 0.8);
-      --ink: #12151c; --ink-soft: #4f5668; --ink-faint: #7a8496;
-      --line-color: rgba(40, 90, 140, 0.16); --line-strong: rgba(13, 111, 212, 0.32);
-      --accent: #0d6fd4; --accent-2: #074a96; --accent-3: #2a8fd4;
+      --bg: #dfe6ef; --bg-elev: #d6dee9; --bg-panel: #f2f6fa; --bg-soft: #e4ebf3;
+      --bg-glass: rgba(223, 230, 239, 0.9);
+      --ink: #12151c; --ink-soft: #4a5265; --ink-faint: #6f7a8d;
+      --line-color: rgba(34, 78, 124, 0.22); --line-strong: rgba(13, 111, 212, 0.46);
+      --accent: #0d6fd4; --accent-2: #074a96; --accent-3: #1f7fc4;
       --success: #0f9f65; --danger: #d92c46; --warn: #b67400;
       --glow: 0 0 0 1px rgba(13, 111, 212, 0.16), 0 18px 44px -24px rgba(13, 111, 212, 0.5);
       --accent-grad: linear-gradient(120deg, #063a7a 0%, #0d6fd4 45%, #4db4ff 82%, #dcefff 100%);
@@ -107,6 +107,8 @@
       width: 100%; height: 100%;
       pointer-events: none; opacity: 1;
     }
+    /* The mesh at full strength over a bright canvas is noise, not texture. */
+    [data-theme="light"] #neural-canvas { opacity: 0.5; }
     .backdrop-texture {
       position: fixed; inset: 0; z-index: 1; pointer-events: none;
       background-image: url("./assets/scroll-backdrop.png");
@@ -117,7 +119,7 @@
     [data-theme="light"] .backdrop-texture {
       background-image: url("./assets/scroll-backdrop-light.png");
       background-size: 820px 820px;
-      opacity: 0.75; mix-blend-mode: normal;
+      opacity: 0.34; mix-blend-mode: multiply;
     }
     @keyframes textureDrift {
       from { background-position: 0 0; }
@@ -132,9 +134,9 @@
     }
     [data-theme="light"] .backdrop-glow {
       background:
-        radial-gradient(880px 520px at 50% -8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
-        radial-gradient(620px 420px at 100% 102%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 70%),
-        radial-gradient(520px 380px at -6% 78%, color-mix(in srgb, var(--accent-3) 12%, transparent), transparent 72%);
+        radial-gradient(880px 520px at 50% -8%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 66%),
+        radial-gradient(620px 420px at 100% 102%, color-mix(in srgb, var(--accent-2) 7%, transparent), transparent 68%),
+        radial-gradient(520px 380px at -6% 78%, color-mix(in srgb, var(--accent-3) 7%, transparent), transparent 70%);
     }
     .backdrop-grid {
       position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.6;
@@ -148,6 +150,7 @@
       -webkit-mask-image: radial-gradient(130% 100% at 50% 0%, #000 8%, transparent 82%);
       animation: gridDrift 40s linear infinite;
     }
+    [data-theme="light"] .backdrop-grid { opacity: 0.32; }
     @keyframes gridDrift {
       from { background-position: 0 0, 0 0, 0 0, 0 0; }
       to { background-position: 0 108px, 108px 0, 0 27px, 27px 0; }
@@ -186,10 +189,14 @@
       .backdrop-orb.c { display: none; }
     }
 
-    /* Corner falloff, so the glow never fights the content for attention. */
+    /* Corner falloff, so the glow never fights the content for attention.
+       Light theme needs it harder: a bright canvas has no natural edges. */
     .backdrop-vignette {
       position: fixed; inset: 0; z-index: 2; pointer-events: none;
       background: radial-gradient(120% 100% at 50% 30%, transparent 40%, color-mix(in srgb, var(--bg) 72%, transparent) 100%);
+    }
+    [data-theme="light"] .backdrop-vignette {
+      background: radial-gradient(115% 95% at 50% 26%, rgba(223, 230, 239, 0) 34%, rgba(150, 167, 190, 0.5) 100%);
     }
     .scanlines {
       position: fixed; inset: 0; z-index: 2; pointer-events: none; opacity: 0.3;
@@ -200,6 +207,7 @@
       );
       mix-blend-mode: overlay;
     }
+    [data-theme="light"] .scanlines { opacity: 0.14; }
 
     /* Frame registration marks: the operator-console tell, and they fill the
        dead space at the edges on a wide monitor. */
@@ -223,6 +231,23 @@
 
     /* Panels sit slightly translucent so the field reads through them. */
     .frame { background: color-mix(in srgb, var(--bg-panel) 93%, transparent); }
+    /* On a bright canvas a translucent panel just disappears into the backdrop,
+       so light theme keeps the cards solid and separates them with shadow. */
+    [data-theme="light"] .frame {
+      background: var(--bg-panel);
+      border-color: var(--line-color);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.9) inset,
+        0 14px 30px -18px rgba(24, 44, 72, 0.4),
+        0 3px 10px -6px rgba(24, 44, 72, 0.22);
+    }
+    [data-theme="light"] .gate-card-inner {
+      background: var(--bg-panel);
+      box-shadow: 0 22px 50px -26px rgba(24, 44, 72, 0.5);
+    }
+    [data-theme="light"] .gate-card {
+      background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 60%, transparent), transparent 44%, color-mix(in srgb, var(--accent-2) 34%, transparent));
+    }
 
     /* =====================================================================
        Shared primitives
@@ -3105,10 +3130,11 @@
               hubLine: "rgba(125,217,255,0.42)"
             }
           : {
-              node: "rgba(13,111,212,0.7)",
-              hub: "rgba(7,74,150,0.8)",
-              line: "rgba(7,74,150,0.22)",
-              hubLine: "rgba(13,111,212,0.3)"
+              // Lighter, and the CSS drops the canvas to 0.5 in this theme.
+              node: "rgba(13,111,212,0.5)",
+              hub: "rgba(7,74,150,0.6)",
+              line: "rgba(7,74,150,0.15)",
+              hubLine: "rgba(13,111,212,0.22)"
             };
       }
 
