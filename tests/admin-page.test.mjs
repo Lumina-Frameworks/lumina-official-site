@@ -524,6 +524,29 @@ describe("admin.html wiring", () => {
     assert.match(html, /\.a-meta \{[\s\S]*?font-size: 9\.5px;/);
   });
 
+  test("the desktop console is viewport-bound with internal scroll areas", () => {
+    // An application surface, not a document: the bar and tab strip stay put
+    // and each section owns its own scroll region.
+    assert.match(html, /body\.is-console \{ height: 100dvh; overflow: hidden; display: flex; flex-direction: column; \}/);
+    assert.match(html, /body\.is-console \.console \{ flex: 1 1 auto; min-height: 0;/);
+    // Every link in a flex chain needs min-height: 0, or the item refuses to
+    // shrink below its content and the page grows a scrollbar anyway.
+    assert.match(html, /\.tabpanel\.is-active \{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; \}/);
+    assert.match(html, /\.tabpanel > \.frame \{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; \}/);
+    // Each section has its own scroller.
+    assert.match(html, /\.list \{ flex: 1 1 auto; min-height: 0; max-height: none; \}/);
+    assert.match(html, /#editor-panel > \.editor \{ flex: 1 1 auto; min-height: 0; overflow-y: auto; \}/);
+    assert.match(html, /\.roster-table \{ flex: 1 1 auto; min-height: 0; \}/);
+    assert.match(html, /\.audit-cards \{ flex: 1 1 auto; min-height: 0; overflow-y: auto; display: none; \}/);
+    // The class only exists while the console is open, and the phone keeps a
+    // normal scrolling document.
+    assert.match(html, /document\.body\.classList\.add\("is-console"\)/);
+    assert.match(html, /@media \(max-width: 899px\) \{\s*\n\s*body\.is-console \{ height: auto; overflow: visible; display: block; \}/);
+    // Leaving must release the lock: an auth failure lands on the gate, which
+    // is a normal document.
+    assert.match(html, /document\.body\.classList\.remove\("is-console"\);/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
