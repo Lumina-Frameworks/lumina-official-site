@@ -452,9 +452,13 @@
        phone: it hid two of the destinations off-screen and left a floating
        refresh button in the middle of nowhere. Below 900px the destination
        list moves into a left drawer behind a hamburger.
+
+       Hidden by default. `display: contents` as the base rule left the panel
+       and its veil in the desktop layout as unstyled blocks, laid out inline
+       between the bar and the content.
        ===================================================================== */
     .nav-toggle { display: none; }
-    .drawer { display: contents; }
+    .drawer, .drawer-veil, .drawer-panel { display: none; }
 
     @media (max-width: 899px) {
       .nav-toggle {
@@ -470,6 +474,7 @@
 
       .drawer { display: block; }
       .drawer-veil {
+        display: block;
         position: fixed; inset: 0; z-index: 68;
         background: rgba(2, 4, 8, 0.6);
         opacity: 0; visibility: hidden;
@@ -477,9 +482,9 @@
       }
       body.drawer-open .drawer-veil { opacity: 1; visibility: visible; }
       .drawer-panel {
+        display: flex; flex-direction: column;
         position: fixed; top: 0; bottom: 0; left: 0; z-index: 69;
         width: min(84vw, 320px);
-        display: flex; flex-direction: column;
         background: var(--bg-panel);
         border-right: 1px solid var(--line-strong);
         transform: translateX(-102%);
@@ -535,8 +540,6 @@
       .drawer-foot .row { display: flex; gap: 8px; }
       .drawer-foot .row > * { flex: 1 1 0; }
     }
-    @media (min-width: 900px) { .drawer-veil { display: none; } }
-
     /* =====================================================================
        Login gate
        ===================================================================== */

@@ -369,6 +369,22 @@ describe("admin.html wiring", () => {
     assert.match(html, /body \{[\s\S]*?overflow-x: clip;/);
   });
 
+  test("the drawer is hidden at desktop width", () => {
+    // `display: contents` as the base rule left the panel and its veil in the
+    // desktop layout as unstyled blocks between the bar and the content.
+    assert.match(html, /\.drawer, \.drawer-veil, \.drawer-panel \{ display: none; \}/);
+    assert.ok(!html.includes(".drawer { display: contents; }"), "the contents rule is back");
+    assert.ok(!/min-width: 900px\) \{ \.drawer-veil/.test(html), "a redundant desktop override is back");
+
+    // And the drawer only becomes real inside the phone query.
+    const phone = html.slice(html.indexOf("@media (max-width: 899px) {\n      .nav-toggle"));
+    assert.ok(phone.length > 0, "no phone drawer block");
+    const block = phone.slice(0, phone.indexOf("\n    }"));
+    assert.match(block, /\.drawer \{ display: block; \}/);
+    assert.match(block, /\.drawer-panel \{\s*\n\s*display: flex; flex-direction: column;/);
+    assert.match(block, /\.drawer-veil \{\s*\n\s*display: block;/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
