@@ -231,6 +231,33 @@ describe("admin.html wiring", () => {
     assert.match(block, /\.row-pills \{ grid-column: 2; \}/);
   });
 
+  test("the bar actions are icon-only squares with real labels", () => {
+    for (const id of ["quick-logout", "theme-toggle", "view-site"]) {
+      const button = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
+      assert.ok(button, `no ${id}`);
+      assert.match(button[0], /icon-only/, `${id} is not icon-only`);
+      assert.match(button[0], /aria-label="[^"]+"/, `${id} has no aria-label`);
+      assert.match(button[0], /title="[^"]+"/, `${id} has no tooltip`);
+    }
+    // No leftover text labels inside those controls.
+    assert.ok(!/btn-label">(Sign out|View site)/.test(html), "a text label survived in the bar");
+    assert.match(html, /\.icon-only \{[\s\S]*?width: 38px/);
+  });
+
+  test("the theme button shows the theme you would switch to", () => {
+    assert.match(html, /\.icon-only\.is-theme \.icon-moon \{ display: none; \}/);
+    assert.match(html, /\[data-theme="light"\] \.icon-only\.is-theme \.icon-sun \{ display: none; \}/);
+    assert.match(html, /\[data-theme="light"\] \.icon-only\.is-theme \.icon-moon \{ display: block; \}/);
+    // Both glyphs exist, and the sparkle it replaced is gone.
+    assert.ok(html.includes('id="i-sun"'), "no sun glyph");
+    assert.ok(html.includes('id="i-moon"'), "no moon glyph");
+    assert.ok(!html.includes('id="i-sparkle"'), "the old sparkle glyph is still in the sprite");
+    // The label is set from both the theme swap and boot, so it always names an
+    // action rather than a state.
+    assert.match(html, /setAttribute\(\s*"aria-label",\s*next === "dark" \? "Switch to light theme" : "Switch to dark theme"\s*\)/);
+    assert.match(html, /startingTheme === "dark" \? "Switch to light theme" : "Switch to dark theme"/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
