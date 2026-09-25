@@ -1716,28 +1716,46 @@
     }
 
     /* =====================================================================
-       Theme cross-fade
-       Colours change wholesale: the page, every panel, the canvas, and the
-       texture PNG, which cannot be interpolated at all. Dropping the whole
-       document to partial opacity made it flash rather than fade.
+       Theme change: a circle wipe from the control you pressed
+       Colours change wholesale, and two layers cannot interpolate at all: the
+       alpha texture PNG, and the canvas mesh, which snaps because it is drawn in
+       JS. A flat cross-fade read as the screen blinking.
 
-       Instead an opaque veil in the theme you are leaving covers the frame,
-       the theme swaps underneath it, and the veil fades out over the new one.
-       A genuinely smooth hand-off, with no flash of an intermediate tint.
+       So a veil in the theme being left expands as a circle centred on the
+       button that was pressed, right out past the farthest corner. The theme
+       swaps underneath it while it covers the whole frame, then the veil keeps
+       expanding and fades as it goes, which uncovers the new theme instead of
+       dissolving into it.
+
+       --wipe-x and --wipe-y are set from the click, so the wipe originates
+       where the eye already is. --wipe-r is the farthest-corner distance.
        ===================================================================== */
     .theme-veil {
+      --wipe-x: 50%;
+      --wipe-y: 50%;
+      --wipe-r: 150vmax;
       position: fixed; inset: 0; z-index: 29999;
-      pointer-events: none; opacity: 0;
+      pointer-events: none;
       background: var(--bg);
-      transition: opacity 0.42s var(--ease-out) 0.08s;
+      /* Parked at zero radius so the element is never painted full-screen. */
+      clip-path: circle(0% at var(--wipe-x) var(--wipe-y));
+      opacity: 0;
     }
-    .theme-veil.is-on {
-      opacity: 1;
-      /* No yield while rising: the veil is opaque for the whole swap. */
-      transition: opacity 0.24s var(--ease-out) 0s;
+    .theme-veil.is-wiping {
+      animation: themeWipe 0.62s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
+    @keyframes themeWipe {
+      /* Sweeps in. */
+      0% { clip-path: circle(0% at var(--wipe-x) var(--wipe-y)); opacity: 1; }
+      30% { clip-path: circle(var(--wipe-r) at var(--wipe-x) var(--wipe-y)); opacity: 1; }
+      /* Fully covering, held just long enough for the swap to land. */
+      46% { clip-path: circle(var(--wipe-r) at var(--wipe-x) var(--wipe-y)); opacity: 1; }
+      /* Then keeps growing while it fades, so the new theme is uncovered. */
+      100% { clip-path: circle(var(--wipe-r) at var(--wipe-x) var(--wipe-y)); opacity: 0; }
+    }
+
     /* Everything that is a plain colour interpolates on its own; the veil is
-       only there to hide what cannot (the texture and the mesh). */
+       only there to hide the two layers that cannot. */
     body, .bar, .frame, .tabs, .toast, .sheet, .drawer-panel, .operator, .search,
     .row-sym, .drop, .drop-preview, .term, .avatar, .brand-mark, .gate-card-inner,
     .console-enter-status, .signout-card, .audit-card, .tile-icon {
@@ -2570,38 +2588,53 @@
     }
 
     /**
-     * Theme swap behind an opaque veil.
+     * Theme swap behind a circle wipe.
      *
-     * Several layers change colour at once and two of them cannot interpolate
-     * at all: the alpha texture PNG, and the canvas mesh, which snaps because it
-     * is drawn in JS. A veil in the outgoing theme covers the frame, the theme
-     * changes underneath it, then the veil fades out over the new one. No flash
-     * of an intermediate tint, no half-faded panels.
+     * The wipe is centred on the button that was pressed, so it starts where the
+     * eye already is and expands past the farthest corner. The theme swaps
+     * underneath it while the frame is fully covered, which is what hides the
+     * two layers that cannot interpolate: the alpha texture PNG, and the canvas
+     * mesh, which snaps because it is drawn in JS.
      */
-    function switchTheme() {
+    function switchTheme(event) {
       const root = document.documentElement;
       const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
       // The preference is written either way; only the animation is optional.
       try { localStorage.setItem("lumina-theme", next); } catch (_) {}
       syncThemeToggles(next);
 
-      if (reduce) {
+      const veil = el.themeVeil;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Reduced motion keeps the instant switch: the global rule already pins
+      // every transition to ~0, so a fade would be an instant blink anyway.
+      if (reduce || !veil) {
         applyTheme(next);
         return;
       }
 
-      // The veil is already painted in the colour of the theme being left.
-      el.themeVeil.classList.add("is-on");
-      setTimeout(() => {
-        applyTheme(next);
-        // One frame with the new theme in place before the veil is released,
-        // or the release can land before the browser has repainted.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => el.themeVeil.classList.remove("is-on"));
-        });
-      }, 260);
+      // Where the wipe begins. A keyboard activation has no coordinates, so fall
+      // back to the toggle's own centre.
+      const target = event?.currentTarget || document.querySelector(".is-theme");
+      const box = target?.getBoundingClientRect?.();
+      const x = event?.clientX || (box ? box.left + box.width / 2 : window.innerWidth / 2);
+      const y = event?.clientY || (box ? box.top + box.height / 2 : window.innerHeight / 2);
+      // Farthest corner, or the circle would not reach all four edges.
+      const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+      veil.style.setProperty("--wipe-x", `${x}px`);
+      veil.style.setProperty("--wipe-y", `${y}px`);
+      veil.style.setProperty("--wipe-r", `${Math.ceil(radius)}px`);
+
+      // Restart the animation if a previous one is still running.
+      veil.classList.remove("is-wiping");
+      void veil.offsetWidth;
+      veil.classList.add("is-wiping");
+
+      // The swap lands while the veil covers the whole frame: the sweep finishes
+      // 30% of the way in, and the veil holds until 46%.
+      setTimeout(() => applyTheme(next), 200);
+      setTimeout(() => veil.classList.remove("is-wiping"), 700);
     }
 
     el.themeToggles.forEach((toggle) => toggle.addEventListener("click", switchTheme));

@@ -161,23 +161,34 @@ describe("admin.html wiring", () => {
     assert.match(html, /el\.logout\.addEventListener\("click", \(\) => \{/);
   });
 
-  test("the theme swap cross-fades behind an opaque veil", () => {
-    assert.match(html, /function switchTheme\(\)/);
-    // An opaque veil in the outgoing theme covers the swap: the texture PNG and
-    // the JS-drawn mesh cannot interpolate, so a plain opacity dip on the body
-    // flashed rather than faded.
-    assert.ok(html.includes('id="theme-veil"'), "no cross-fade veil");
-    assert.match(html, /\.theme-veil \{[\s\S]*?background: var\(--bg\);/);
-    assert.match(html, /\.theme-veil\.is-on \{[\s\S]*?opacity: 1;/);
+  test("the theme change wipes as a circle from the button you pressed", () => {
+    assert.match(html, /function switchTheme\(event\)/);
+    // A flat cross-fade read as the screen blinking. The veil expands as a
+    // circle centred on the pressed control: two layers cannot interpolate (the
+    // alpha texture PNG and the JS-drawn mesh), so the swap has to happen while
+    // something opaque covers the frame.
+    assert.ok(html.includes('id="theme-veil"'), "no wipe veil");
+    assert.match(html, /@keyframes themeWipe \{/);
+    assert.match(html, /clip-path: circle\(0% at var\(--wipe-x\) var\(--wipe-y\)\);/);
+    assert.match(html, /clip-path: circle\(var\(--wipe-r\) at var\(--wipe-x\) var\(--wipe-y\)\); opacity: 1;/);
+    // It ends faded and fully expanded, so the new theme is uncovered.
+    assert.match(html, /100% \{ clip-path: circle\(var\(--wipe-r\) at var\(--wipe-x\) var\(--wipe-y\)\); opacity: 0; \}/);
+    assert.match(html, /\.theme-veil\.is-wiping \{/);
     assert.ok(!html.includes("is-theming"), "the old opacity-dip rules are back");
-    assert.match(html, /el\.themeVeil\.classList\.add\("is-on"\)/);
-    // Two frames between the swap and the release, so the repaint has landed.
-    assert.match(
-      html,
-      /requestAnimationFrame\(\(\) => \{\s*\n\s*requestAnimationFrame\(\(\) => el\.themeVeil\.classList\.remove\("is-on"\)\)/
-    );
-    // Reduced motion still switches, just without the animation.
-    assert.match(html, /if \(reduce\) \{\s*\n\s*applyTheme\(next\);\s*\n\s*return;/);
+
+    // The origin is the click, with a keyboard fallback to the control's centre.
+    assert.match(html, /const target = event\?\.currentTarget \|\| document\.querySelector\("\.is-theme"\);/);
+    // Farthest corner, or the circle would not reach all four edges.
+    assert.match(html, /Math\.hypot\(Math\.max\(x, window\.innerWidth - x\), Math\.max\(y, window\.innerHeight - y\)\)/);
+    assert.match(html, /veil\.style\.setProperty\("--wipe-x", `\$\{x\}px`\);/);
+    // Restarted rather than resumed, so a double press still animates.
+    assert.match(html, /veil\.classList\.remove\("is-wiping"\);\s*\n\s*void veil\.offsetWidth;\s*\n\s*veil\.classList\.add\("is-wiping"\);/);
+    // The swap lands while the frame is fully covered.
+    assert.match(html, /setTimeout\(\(\) => applyTheme\(next\), 200\);/);
+
+    // Reduced motion switches outright: the sheet already pins every transition
+    // to ~0, so a fade would be an instant blink anyway.
+    assert.match(html, /if \(reduce \|\| !veil\) \{\s*\n\s*applyTheme\(next\);\s*\n\s*return;/);
     assert.match(html, /if \(el\.idleMark\) el\.idleMark\.src = mark;/);
     // The preference is read before first paint, so there is no dark flash.
     assert.match(html, /localStorage\.getItem\("lumina-theme"\)/);
