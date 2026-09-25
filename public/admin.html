@@ -355,12 +355,19 @@
        Top bar
        ===================================================================== */
     .bar {
+      /* -webkit-sticky for older iOS Safari, which ignores the unprefixed
+         keyword outright. */
+      position: -webkit-sticky;
       position: sticky; top: 0; z-index: 40;
       display: flex; align-items: center; gap: 14px;
       padding: 0 var(--pad); height: var(--bar-h);
       background: var(--bg-glass);
       backdrop-filter: blur(16px) saturate(140%);
       border-bottom: 1px solid var(--line-color);
+      /* A transformed or contained ancestor breaks sticky, and so does a
+         promoted layer that repaints underneath it. Neither is needed here. */
+      transform: none; filter: none; contain: none; will-change: auto;
+      isolation: isolate;
     }
     .bar::after {
       content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
@@ -581,6 +588,10 @@
       .tabpanel.is-active { display: block; }
       main { display: block; }
       .console-grid { align-items: start; }
+      /* Sticky needs the scroll container to be the viewport. These are the
+         properties that would take that away, so they are pinned off here. */
+      html, body { overflow-y: visible; overscroll-behavior-y: none; }
+      .bar { position: -webkit-sticky; position: sticky; top: 0; }
     }
 
     /* =====================================================================

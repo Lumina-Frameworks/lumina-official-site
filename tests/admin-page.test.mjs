@@ -685,6 +685,21 @@ describe("admin.html wiring", () => {
     assert.match(html, /\.ac-who \{ min-width: 0; flex: 1 1 auto; \}/);
   });
 
+  test("the top bar stays put when the page scrolls", () => {
+    const bar = html.match(/\n    \.bar \{[^}]*\}/);
+    assert.ok(bar, "no .bar rule");
+    // Prefixed for older iOS Safari, which ignores the bare keyword.
+    assert.match(bar[0], /position: -webkit-sticky;/);
+    assert.match(bar[0], /position: sticky; top: 0;/);
+    // Properties an ancestor or the element itself could use to defeat it.
+    assert.match(bar[0], /transform: none; filter: none; contain: none; will-change: auto;/);
+    // The phone layout re-asserts it, because that is where the page really
+    // scrolls as a document.
+    assert.match(html, /\.bar \{ position: -webkit-sticky; position: sticky; top: 0; \}/);
+    // And the scroll container has to be the viewport.
+    assert.match(html, /html, body \{ overflow-y: visible; overscroll-behavior-y: none; \}/);
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");
