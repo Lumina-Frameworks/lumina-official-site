@@ -387,8 +387,21 @@ describe("admin.html wiring", () => {
     assert.match(html, /el\.filters\.hidden = window\.matchMedia\("\(max-width: 700px\)"\)\.matches;/);
     assert.match(html, /\.filters-toggle \{ display: none; \}/);
     assert.match(html, /\.filters-toggle \{\s*\n\s*display: inline-flex;/);
-    // The filter group must not be clobbered by the .search box rule again.
-    assert.match(html, /\.filters \{ display: contents; \}/);
+  });
+
+  test("toolbar controls are compact, not form fields", () => {
+    // `.filters` used `display: contents`, promoting the selects to direct flex
+    // children of the toolbar. Every control here carries `width: 100%` from the
+    // form rule, so each one stretched the full width and took a row of its own.
+    assert.ok(!html.includes(".filters { display: contents; }"), "display: contents is back");
+    assert.match(html, /\.filters \{\s*\n\s*display: flex; flex-wrap: wrap; align-items: center; gap: 8px;/);
+    // And the toolbar fields opt out of the form width.
+    assert.match(html, /\.filters select,\s*\n\s*\.filters input\[type="date"\] \{\s*\n\s*width: auto;/);
+    assert.match(html, /\.search\.compact \{ flex: 0 1 240px; width: auto; padding: 6px 10px; \}/);
+    assert.match(html, /class="search compact"/);
+    // Dates carry a visible label only where the layout has room for one.
+    assert.match(html, /\.date-label \{ display: none; \}/);
+    assert.match(html, /\.date-label \{\s*\n\s*display: block;/);
   });
 
   test("a phone never paints the fixed backdrop layers", () => {

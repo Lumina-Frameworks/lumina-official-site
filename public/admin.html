@@ -964,9 +964,13 @@
     }
     .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
     .search .icon { color: var(--ink-faint); }
+    /* The field carries a placeholder, so it does not need to stretch across a
+       wide toolbar to be legible. */
     .search input {
-      flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-size: 13px;
+      flex: 1 1 auto; width: 100%; min-width: 0;
+      border: 0; background: transparent; outline: none; font-size: 13px;
     }
+    .search.compact { flex: 0 1 240px; width: auto; padding: 6px 10px; }
     .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip {
       font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
@@ -1300,11 +1304,33 @@
     }
 
     .toolbar {
-      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-      padding: 14px 18px; border-bottom: 1px solid var(--line-color);
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      padding: 10px 14px; border-bottom: 1px solid var(--line-color);
     }
     .toolbar .spacer { flex: 1 1 auto; }
-    .filters { display: contents; }
+    /* ---------------------------------------------------------------------
+       Toolbar controls are a row of compact fields, not a form.
+       `.filters` used `display: contents`, which promoted the three selects to
+       direct flex children of the toolbar. Every control in this sheet carries
+       `width: 100%` from the form rule, so each one then stretched the full
+       toolbar width and took a row of its own. Three selects in three
+       full-width rows is what "why is it so big" was.
+       --------------------------------------------------------------------- */
+    .filters {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      flex: 1 1 auto; min-width: 0;
+    }
+    .filters select,
+    .filters input[type="date"] {
+      width: auto; max-width: 100%;
+      padding: 6px 10px; font-size: 12px; line-height: 1.4;
+      font-family: var(--font-mono); letter-spacing: 0.02em;
+    }
+    .filters select { padding-right: 26px; }
+    .filters input[type="date"] { flex: 0 0 auto; }
+    .filters .filters-actions { display: flex; gap: 6px; align-items: center; }
+    .filters .filters-actions button { padding: 6px 10px; min-height: 30px; font-size: 10px; }
+    .date-label { display: none; }
     /* Collapse toggle exists for the phone layout only. */
     .filters-toggle { display: none; }
     @media (max-width: 700px) {
@@ -1319,10 +1345,17 @@
       .filters { display: grid; grid-column: 1 / -1; gap: 8px; }
       .filters[hidden] { display: none; }
       .filters .icon-filter { display: none; }
+      .filters select, .filters input[type="date"] { width: 100%; font-size: 13px; padding: 9px 12px; }
       .filters .date-pair { display: flex; gap: 8px; }
+      .filters .date-pair label { flex: 1 1 0; min-width: 0; }
+      .date-label {
+        display: block; font-family: var(--font-mono); font-size: 9px;
+        letter-spacing: 0.14em; text-transform: uppercase;
+        color: var(--ink-faint); margin-bottom: 4px;
+      }
       .filters .filters-actions { display: flex; gap: 8px; }
       .filters .filters-actions > * { flex: 1 1 0; }
-      .filters select, .filters input { font-size: 13px; }
+      .filters .filters-actions button { padding: 9px 12px; min-height: 38px; font-size: 11px; }
       .filters-toggle {
         display: inline-flex; width: auto; justify-content: center;
         min-width: 44px; padding: 9px 11px;
@@ -2187,16 +2220,15 @@
         </div>
 
         <div class="toolbar">
-          <label class="search grow">
+          <label class="search compact">
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-search"/></svg>
-            <input type="search" id="audit-search" placeholder="Search summary, actor, record…" autocomplete="off" />
+            <input type="search" id="audit-search" placeholder="Search the log…" autocomplete="off" />
           </label>
           <button class="ghost tiny filters-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="audit-filters">
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-filter"/></svg>
             <span class="btn-label">Filters</span>
           </button>
           <div class="filters" id="audit-filters">
-            <svg class="icon icon-sm icon-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-faint)" aria-hidden="true"><use href="#i-filter"/></svg>
             <select id="audit-action" aria-label="Filter by category">
               <option value="">All activity</option>
               <option value="project.">Projects</option>
@@ -2215,8 +2247,14 @@
               <option value="failed">Failed</option>
             </select>
             <div class="date-pair">
-              <label><span class="sr-only">From date</span><input type="date" id="audit-since" aria-label="From date" /></label>
-              <label><span class="sr-only">To date</span><input type="date" id="audit-until" aria-label="To date" /></label>
+              <label>
+                <span class="date-label">From</span>
+                <input type="date" id="audit-since" aria-label="From date" />
+              </label>
+              <label>
+                <span class="date-label">To</span>
+                <input type="date" id="audit-until" aria-label="To date" />
+              </label>
             </div>
             <div class="filters-actions">
               <button class="ghost tiny" id="audit-clear" type="button">
