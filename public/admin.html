@@ -1126,6 +1126,53 @@
     .clickable { cursor: pointer; }
 
     /* ---------------------------------------------------------------------
+       Admin manager, phone layout
+       Two problems here. The tiles inherited the overview's four-across row,
+       but they are nested inside a card with its own padding, so the label had
+       nowhere to go. And the roster table needs 640px before it is readable, so
+       on a phone it was a sideways scroll inside a frame.
+
+       So: tiles go two-by-two, and the roster becomes a list of people with the
+       fields that matter stacked, rather than six columns in a scroller.
+       --------------------------------------------------------------------- */
+    .admin-cards { display: none; }
+    @media (max-width: 899px) {
+      #admins-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+      .admin-cards { display: grid; }
+      .roster-table { display: none; }
+      .admin-card {
+        display: grid; gap: 10px; width: 100%; text-align: left;
+        padding: 13px 14px; background: transparent; border: 0;
+        border-bottom: 1px solid var(--line-color);
+        clip-path: none; min-height: 0; animation: none;
+        transition: background 0.16s;
+      }
+      .admin-card::after { display: none; }
+      .admin-card:hover, .admin-card:active { background: var(--bg-soft); transform: none; }
+      .admin-card.suspended .who-mail { color: var(--ink-faint); }
+      .ac-top { display: flex; align-items: center; gap: 11px; }
+      .ac-top .avatar { width: 34px; height: 34px; font-size: 11px; }
+      .ac-who { min-width: 0; flex: 1; }
+      .ac-name {
+        font-size: 13.5px; font-weight: 500;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .who-mail {
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .ac-pills { display: flex; gap: 5px; flex: none; align-items: center; }
+      .ac-meta {
+        display: flex; flex-wrap: wrap; gap: 3px 12px;
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+      }
+      .ac-meta b { color: var(--ink-soft); font-weight: 400; }
+      .ac-do {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      }
+      .ac-do .manage { min-width: 0; }
+    }
+    /* ---------------------------------------------------------------------
        Audit log, phone layout
        The table needs 640px before it is readable, which on a phone means a
        sideways scroll inside a page that must not scroll sideways. Below 760px
@@ -1134,7 +1181,8 @@
        --------------------------------------------------------------------- */
     .audit-cards { display: none; }
     @media (max-width: 760px) {
-      .table-scroll { display: none; }
+      /* Only the audit table: the roster has its own switch at 899px. */
+      .audit-table { display: none; }
       .audit-cards { display: grid; }
       .audit-card {
         display: grid; gap: 6px; width: 100%; text-align: left; cursor: pointer;
@@ -2009,8 +2057,8 @@
           <div id="admins-denied-text">Managing access needs the owner role.</div>
         </div>
         <div id="admins-wrap">
-          <div class="tiles" id="admins-tiles" style="padding:16px"></div>
-          <div class="table-scroll">
+          <div class="tiles" id="admins-tiles"></div>
+          <div class="table-scroll roster-table">
             <table>
               <thead>
                 <tr>
@@ -2025,6 +2073,7 @@
               <tbody id="admins-body"></tbody>
             </table>
           </div>
+          <div class="admin-cards" id="admin-cards"></div>
         </div>
       </div>
     </section>
@@ -2083,7 +2132,7 @@
           </div>
         </div>
 
-        <div class="table-scroll">
+        <div class="table-scroll audit-table">
           <table>
             <thead>
               <tr>
@@ -2238,6 +2287,7 @@
       /* admins */
       adminsWrap: $("admins-wrap"), adminsDenied: $("admins-denied"), adminsDeniedText: $("admins-denied-text"),
       adminsTiles: $("admins-tiles"), adminsBody: $("admins-body"), adminsCount: $("admins-count"),
+      adminCards: $("admin-cards"),
       inviteOpen: $("invite-open"), adminSheet: $("admin-sheet"), adminForm: $("admin-form"),
       adminEmail: $("admin-email"), adminRole: $("admin-role"), adminNote: $("admin-note"),
       adminEmailField: $("admin-email-field"), adminRemove: $("admin-remove"), adminSave: $("admin-save"),
@@ -3352,42 +3402,79 @@
       ].join("");
 
       if (!list.length) {
+        const nobody = '<div class="pad-note">Nobody has access yet.</div>';
         el.adminsBody.innerHTML = '<tr><td colspan="6" class="pad-note">Nobody has access yet.</td></tr>';
+        el.adminCards.innerHTML = nobody;
         return;
       }
 
-      el.adminsBody.innerHTML = list.map((admin, index) => {
+      const rows = list.map((admin, index) => {
         const self = admin.email === state.viewer?.email;
         const initials = U.initials(admin.name || admin.email);
         const statusPill = admin.status === "suspended"
           ? '<span class="pill suspended">Suspended</span>'
           : '<span class="pill on">Active</span>';
-        return (
-          '<tr style="animation-delay:' + Math.min(index * 26, 320) + 'ms">' +
-          '<td><div class="cell-main"><span class="avatar">' +
-          (admin.picture ? '<img src="' + escapeHtml(U.safeUrl(admin.picture)) + '" alt="" />' : escapeHtml(initials)) +
-          '</span><div class="cell-text"><div class="cell-title">' + escapeHtml(admin.name || admin.email.split("@")[0]) +
-          (self ? ' <span class="pill">you</span>' : "") + "</div>" +
-          '<div class="cell-sub">' + escapeHtml(admin.email) + "</div></div></div></td>" +
-          '<td><span class="pill ' + escapeHtml(admin.role) + '">' + escapeHtml(U.roleLabel(admin.role)) + "</span></td>" +
-          "<td>" + statusPill + "</td>" +
-          '<td class="num">' + escapeHtml(admin.lastSeen ? U.relativeTime(admin.lastSeen) : "never") +
-          (admin.loginCount ? " · " + admin.loginCount + " sign-ins" : "") + "</td>" +
-          '<td class="num">' + (admin.activeSessions || 0) + "</td>" +
-          '<td><div class="row-actions">' +
-          (admin.locked
-            ? '<span class="pill locked">ADMIN_EMAILS</span>'
-            : self
-              ? '<span class="cell-sub">your account</span>'
-              : canWrite()
-                ? '<button class="ghost tiny" data-manage="' + escapeHtml(admin.email) + '" type="button">Manage</button>'
-                : "") +
-          "</div></td></tr>"
-        );
-      }).join("");
+        // One place decides what the row action is, so the table and the phone
+        // cards cannot drift apart.
+        const action = admin.locked
+          ? '<span class="pill locked">ADMIN_EMAILS</span>'
+          : self
+            ? '<span class="cell-sub">your account</span>'
+            : canWrite()
+              ? '<button class="ghost tiny" data-manage="' + escapeHtml(admin.email) + '" type="button">Manage</button>'
+              : "";
+        const avatar = admin.picture
+          ? '<img src="' + escapeHtml(U.safeUrl(admin.picture)) + '" alt="" />'
+          : escapeHtml(initials);
+        const name = admin.name || admin.email.split("@")[0];
+        const seen = admin.lastSeen ? U.relativeTime(admin.lastSeen) : "never";
+        return { admin, self, statusPill, action, avatar, name, seen, index };
+      });
+
+      el.adminsBody.innerHTML = rows.map(({ admin, self, statusPill, action, avatar, name, seen, index }) =>
+        '<tr style="animation-delay:' + Math.min(index * 26, 320) + 'ms">' +
+        '<td><div class="cell-main"><span class="avatar">' + avatar +
+        '</span><div class="cell-text"><div class="cell-title">' + escapeHtml(name) +
+        (self ? ' <span class="pill">you</span>' : "") + "</div>" +
+        '<div class="cell-sub">' + escapeHtml(admin.email) + "</div></div></div></td>" +
+        '<td><span class="pill ' + escapeHtml(admin.role) + '">' + escapeHtml(U.roleLabel(admin.role)) + "</span></td>" +
+        "<td>" + statusPill + "</td>" +
+        '<td class="num">' + escapeHtml(seen) +
+        (admin.loginCount ? " · " + admin.loginCount + " sign-ins" : "") + "</td>" +
+        '<td class="num">' + (admin.activeSessions || 0) + "</td>" +
+        '<td><div class="row-actions">' + action + "</div></td></tr>"
+      ).join("");
+
+      // Phone equivalent: what the roster is actually for, without six columns
+      // in a 640px scroller.
+      el.adminCards.innerHTML = rows.map(({ admin, self, statusPill, action, avatar, name, seen }) =>
+        '<div class="admin-card ' + (admin.status === "suspended" ? "suspended" : "") + '">' +
+        '<div class="ac-top">' +
+        '<span class="avatar">' + avatar + "</span>" +
+        '<span class="ac-who">' +
+        '<span class="ac-name">' + escapeHtml(name) + (self ? ' <span class="pill">you</span>' : "") + "</span>" +
+        '<span class="who-mail">' + escapeHtml(admin.email) + "</span>" +
+        "</span>" +
+        '<span class="ac-pills">' +
+        '<span class="pill ' + escapeHtml(admin.role) + '">' + escapeHtml(U.roleLabel(admin.role)) + "</span>" +
+        statusPill +
+        "</span></div>" +
+        '<div class="ac-meta">' +
+        "<span>last seen <b>" + escapeHtml(seen) + "</b></span>" +
+        "<span><b>" + (admin.loginCount || 0) + "</b> sign-ins</span>" +
+        "<span><b>" + (admin.activeSessions || 0) + "</b> live</span>" +
+        (admin.locked ? "<span>set in env</span>" : "") +
+        "</div>" +
+        (action ? '<div class="ac-do">' + action + "</div>" : "") +
+        "</div>"
+      ).join("");
     }
 
     el.adminsBody.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-manage]");
+      if (button) openAdminSheet(button.dataset.manage);
+    });
+    el.adminCards.addEventListener("click", (event) => {
       const button = event.target.closest("[data-manage]");
       if (button) openAdminSheet(button.dataset.manage);
     });

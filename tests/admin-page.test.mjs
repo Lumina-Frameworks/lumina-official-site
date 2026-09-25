@@ -351,11 +351,33 @@ describe("admin.html wiring", () => {
     // The table needs 640px before it is readable; on a phone that is a
     // sideways scroll inside a page that must not scroll sideways.
     assert.ok(html.includes('id="audit-cards"'), "no mobile card container");
-    assert.match(html, /@media \(max-width: 760px\) \{\s*\n\s*\.table-scroll \{ display: none; \}/);
+    assert.match(html, /@media \(max-width: 760px\) \{\s*\n\s*\/\* Only the audit table[\s\S]*?\.audit-table \{ display: none; \}/);
     assert.match(html, /\.audit-cards \{ display: none; \}/);
     assert.match(html, /\.audit-cards \{ display: grid; \}/);
     assert.match(html, /el\.auditCards\.innerHTML = events\.map/);
     assert.match(html, /el\.auditCards\.addEventListener\("click", \(event\) => openEventFrom\(event\.target\)\)/);
+  });
+
+  test("the admin manager is a card list on a phone", () => {
+    // Same problem as the audit table: six columns need 640px. And the tiles
+    // inherited the overview's four-across row while sitting inside a padded
+    // card, so the label had nowhere to go.
+    assert.ok(html.includes('id="admin-cards"'), "no roster card container");
+    assert.match(html, /#admins-tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); gap: 8px; padding: 12px; \}/);
+    assert.match(html, /\.admin-cards \{ display: none; \}/);
+    assert.match(html, /\.admin-cards \{ display: grid; \}/);
+    assert.match(html, /\.roster-table \{ display: none; \}/);
+    // The two tables must not share one switch, or hiding the audit table
+    // silently takes the roster with it.
+    assert.match(html, /<div class="table-scroll roster-table">/);
+    assert.match(html, /<div class="table-scroll audit-table">/);
+    assert.ok(!/\.table-scroll \{ display: none; \}/.test(html), "a shared table switch is back");
+
+    // One source of truth for the row action, so the table and cards agree.
+    assert.match(html, /const action = admin\.locked/);
+    assert.equal((html.match(/const action = admin\.locked/g) || []).length, 1);
+    assert.match(html, /el\.adminCards\.innerHTML = rows\.map/);
+    assert.match(html, /el\.adminCards\.addEventListener\("click"/);
   });
 
   test("audit filters collapse behind a toggle on a phone", () => {
