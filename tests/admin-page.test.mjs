@@ -79,19 +79,24 @@ describe("admin.html wiring", () => {
     assert.match(html, /accounts\.google\.com\/gsi\/client/);
   });
 
-  test("tabs, panels and their labels line up", () => {
-    const tabs = [...html.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(tabs, ["overview", "projects", "admins", "audit"]);
+  test("the drawer is the navigation and every panel exists", () => {
+    // The tab strip is gone: it hid two of the four destinations off-screen on a
+    // phone, and at desktop width it duplicated the menu.
+    assert.equal((html.match(/data-tab="[a-z]+"/g) || []).length, 0, "the tab strip is back");
+    assert.ok(!html.includes("tab-ink"), "the ink indicator is back");
+    assert.ok(!html.includes("syncTabInk"), "the ink measurement is back");
 
-    for (const name of tabs) {
+    const targets = [...html.matchAll(/data-goto="([a-z]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(targets, ["overview", "projects", "admins", "audit"]);
+    for (const name of targets) {
       assert.ok(html.includes(`id="panel-${name}"`), `missing panel for ${name}`);
-      assert.ok(html.includes(`id="tab-${name}"`), `missing tab button for ${name}`);
-      assert.match(
-        html,
-        new RegExp(`aria-controls="panel-${name}"`),
-        `tab ${name} does not point at its panel`
-      );
     }
+    // The section name is carried by the panel bar now.
+    assert.match(html, /<span class="panel-label" id="panel-label">Overview<\/span>/);
+    assert.match(html, /if \(el\.panelLabel\) el\.panelLabel\.textContent = label;/);
+    // selectTab validates against the known set rather than a tab element.
+    assert.match(html, /const SECTIONS = \["overview", "projects", "admins", "audit"\];/);
+    assert.match(html, /if \(!SECTIONS\.includes\(name\)\) return;/);
   });
 
   test("the viewer role is respected in the markup defaults", () => {
@@ -279,10 +284,9 @@ describe("admin.html wiring", () => {
   });
 
   test("the session actions live in the drawer, icon-only and labelled", () => {
-    // One set of controls, in the drawer. On a phone the drawer is the
-    // navigation; on desktop it is the overflow menu, so nothing is duplicated
-    // in the DOM.
-    for (const id of ["quick-logout", "theme-toggle", "drawer-site", "drawer-refresh"]) {
+    // One set of controls, in the drawer, which is now the navigation at every
+    // width. Nothing is duplicated in the DOM.
+    for (const id of ["quick-logout", "theme-toggle", "drawer-site"]) {
       const control = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
       assert.ok(control, `no ${id}`);
       assert.match(control[0], /icon-only/, `${id} is not icon-only`);
@@ -290,23 +294,22 @@ describe("admin.html wiring", () => {
       assert.match(control[0], /title="[^"]+"/, `${id} has no tooltip`);
     }
     // They sit inside the drawer footer, not the bar.
-    const footer = html.match(/<div class="drawer-foot">[\s\S]*?\n      <\/div>/);
+    const footer = html.match(/<div class="drawer-foot">[\s\S]*?<\/aside>/);
     assert.ok(footer, "no drawer footer");
-    for (const id of ["quick-logout", "theme-toggle", "drawer-site", "drawer-refresh"]) {
+    for (const id of ["quick-logout", "theme-toggle", "drawer-site"]) {
       assert.ok(footer[0].includes(`id="${id}"`), `${id} is not in the drawer footer`);
     }
     assert.match(html, /\.drawer-actions \{ display: flex; gap: 8px; \}/);
     assert.match(html, /\.drawer-actions \.btn-label \{ display: none; \}/);
 
-    // And the bar keeps only the operator chip, plus the panel bar's buttons.
-    assert.match(html, /\.bar #operator-chip \{ display: none; \}/);
-    assert.match(html, /\.panel-bar \.nav-toggle \{ display: none; \}/);
-    assert.match(html, /\.panel-bar \.nav-toggle \{ display: inline-flex; \}/);
+    // Refresh has exactly one button, and it lives in the panel bar.
+    assert.equal((html.match(/id="refresh"/g) || []).length, 1);
+    assert.ok(!html.includes("drawer-refresh"), "a second refresh button came back");
   });
 
   test("both hamburgers drive the same menu", () => {
-    // The bar's toggle is the phone's, the panel bar's is the desktop overflow
-    // button. Two elements, one menu, so both ids are needed and unique.
+    // The bar's toggle is the phone's, the panel bar's the desktop's. Two
+    // elements, one menu, so both ids are needed and unique.
     assert.equal((html.match(/id="nav-toggle"/g) || []).length, 1);
     assert.equal((html.match(/id="menu-toggle"/g) || []).length, 1);
     assert.match(html, /function toggleButtons\(\) \{\s*\n\s*return \[el\.navToggle, el\.menuToggle\]\.filter\(Boolean\);/);
@@ -314,6 +317,8 @@ describe("admin.html wiring", () => {
     // The expand state is reported on both.
     assert.match(html, /toggleButtons\(\)\.forEach\(\(button\) => button\.setAttribute\("aria-expanded", "true"\)\)/);
     assert.match(html, /toggleButtons\(\)\.forEach\(\(button\) => button\.setAttribute\("aria-expanded", "false"\)\)/);
+    // Both toggles are reachable: the bar's on a phone, the panel bar's always.
+    assert.match(html, /\.nav-toggle \{ display: inline-flex; \}/);
     // On desktop it is a popover, so the page is not locked.
     assert.match(html, /if \(isHandset\(\)\) holdScroll\(\);/);
     assert.match(html, /if \(el\.drawerPanel\.contains\(event\.target\) \|\| el\.navToggle\.contains\(event\.target\)\) return;/);
@@ -365,19 +370,18 @@ describe("admin.html wiring", () => {
     assert.ok(html.includes('id="nav-toggle"'), "no hamburger");
     assert.ok(html.includes('id="drawer-panel"'), "no drawer panel");
     assert.match(html, /aria-controls="drawer-panel"/);
-    // One drawer link per destination, matching the tabs.
+    // One drawer link per destination.
     const targets = [...html.matchAll(/data-goto="([a-z]+)"/g)].map((m) => m[1]);
     assert.deepEqual(targets, ["overview", "projects", "admins", "audit"]);
-    // The strip is hidden rather than removed, so panel labelling survives.
-    assert.match(html, /\.tabs \{ display: none; \}/);
-    assert.ok(!/\.tabs \{ display: flex; gap: 4px; overflow-x: auto/.test(html.split("@media (max-width: 899px)")[1].split("@media (min-width: 900px)")[0]));
+    // The strip is gone, not merely hidden.
+    assert.ok(!html.includes("tab-ink"), "the ink indicator is back");
+    assert.ok(!/data-tab="/.test(html), "a tab button is back");
     assert.match(html, /body\.drawer-open \.drawer-panel \{ transform: translate3d\(0, 0, 0\); \}/);
     // Escape and the veil both close it.
     assert.match(html, /el\.drawerVeil\.addEventListener\("click", \(\) => closeDrawer/);
     assert.match(html, /event\.key === "Escape" && document\.body\.classList\.contains\("drawer-open"\)/);
-    // Drawer badges track the tab badges.
-    assert.match(html, /setBadge\("badge-" \+ name, value\);/);
-    assert.match(html, /setBadge\("drawer-badge-" \+ name, value\);/);
+    // The drawer is the only place the counters appear.
+    assert.match(html, /function setBadges\(name, value\) \{\s*\n\s*setBadge\("drawer-badge-" \+ name, value\);/);
   });
 
   test("the audit log becomes a card list on a phone", () => {
@@ -451,20 +455,18 @@ describe("admin.html wiring", () => {
     assert.match(html, /body \{[\s\S]*?overflow-x: clip;/);
   });
 
-  test("the drawer is hidden at desktop width", () => {
-    // `display: contents` as the base rule left the panel and its veil in the
-    // desktop layout as unstyled blocks between the bar and the content.
-    assert.match(html, /\.drawer, \.drawer-veil, \.drawer-panel \{ display: none; \}/);
+  test("the menu is reachable at every width", () => {
+    // It used to be phone-only, with the tab strip covering desktop. Now it is
+    // the navigation everywhere, so the drawer must be displayed at all widths.
     assert.ok(!html.includes(".drawer { display: contents; }"), "the contents rule is back");
-    assert.ok(!/min-width: 900px\) \{ \.drawer-veil/.test(html), "a redundant desktop override is back");
+    assert.match(html, /\.drawer \{ display: block; \}/);
+    assert.match(html, /\.nav-toggle \{ display: inline-flex; \}/);
 
-    // And the drawer only becomes real inside the phone query.
-    const phone = html.slice(html.indexOf("@media (max-width: 899px) {\n      .nav-toggle"));
-    assert.ok(phone.length > 0, "no phone drawer block");
-    const block = phone.slice(0, phone.indexOf("\n    }"));
-    assert.match(block, /\.drawer \{ display: block; \}/);
-    assert.match(block, /\.drawer-panel \{\s*\n\s*display: flex; flex-direction: column;/);
-    assert.match(block, /\.drawer-veil \{\s*\n\s*display: block;/);
+    // Two presentations, both real: the phone drawer and the desktop popover.
+    assert.match(html, /@media \(max-width: 899px\) \{[\s\S]*?\.drawer-panel \{\s*\n\s*display: flex; flex-direction: column;/);
+    assert.match(html, /@media \(min-width: 900px\) \{[\s\S]*?\.drawer-panel \{\s*\n\s*display: flex; flex-direction: column;/);
+    // The veil belongs to the phone drawer; the popover needs no scrim.
+    assert.match(html, /\.drawer-veil \{ display: none; \}/);
   });
 
   test("a stored image URL that does not resolve says so", () => {
@@ -476,23 +478,27 @@ describe("admin.html wiring", () => {
     assert.match(html, /This image URL does not load/);
   });
 
-  test("a phone bar keeps only the hamburger, brand and theme button", () => {
-    // The operator line and the two actions are one tap away in the drawer, and
-    // the operator line is already the drawer's footer.
-    assert.match(html, /\.bar #quick-logout, \.bar #view-site \{ display: none; \}/);
+  test("a phone bar keeps only the hamburger and the brand", () => {
+    // The session actions are one tap away in the drawer, and the operator line
+    // is already the drawer's footer.
     assert.match(html, /\.bar \.operator \{ display: none; \}/);
-    // Keyed on a class on the bar, NOT on `hidden`: openConsole reveals these by
-    // removing `hidden`, so a plain CSS hide would have broken desktop instead.
+    assert.ok(!html.includes('id="view-site"'), "a view-site control is back in the bar");
+    // Keyed on a class on the bar, NOT on `hidden`: openConsole reveals the chip
+    // by adding a class, so a plain CSS hide would have broken desktop instead.
     assert.match(html, /\.bar\.is-live #operator-chip \{ display: flex; \}/);
     assert.match(html, /el\.bar\.classList\.add\("is-live"\)/);
-    assert.ok(!/el\.(logout|viewSite|operatorChip)\.classList\.remove\("hidden"\)/.test(html), "the JS still toggles hidden");
+    assert.ok(!/el\.(logout|operatorChip)\.classList\.remove\("hidden"\)/.test(html), "the JS still toggles hidden");
   });
 
-  test("the ink indicator survives a hidden tab strip", () => {
-    // On a phone the strip is display:none, so offsetWidth is 0 and the ink
-    // would snap to the left edge under a strip that is not even rendered.
-    assert.match(html, /\.tabs \{ display: none; \}/);
-    assert.match(html, /if \(!active\.offsetParent\) return;/);
+  test("the section name is shown without a tab strip to carry it", () => {
+    // The strip was the only thing naming the current section. It is the panel
+    // bar's label and the drawer head now.
+    assert.match(html, /<span class="panel-label" id="panel-label">Overview<\/span>/);
+    assert.match(html, /\.panel-label \{[\s\S]*?text-transform: uppercase; color: var\(--accent\);/);
+    assert.match(html, /if \(el\.drawerSection\) el\.drawerSection\.textContent = label;/);
+    assert.match(html, /if \(el\.panelLabel\) el\.panelLabel\.textContent = label;/);
+    // Deriving it from the drawer link keeps one source of truth for the name.
+    assert.match(html, /if \(active\) label = link\.querySelector\("\.drawer-label"\)\.textContent;/);
   });
 
   test("the overview tiles are one row of four on a phone", () => {
