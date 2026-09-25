@@ -576,6 +576,33 @@ describe("admin.html wiring", () => {
     assert.match(html, /\.row-sub \{[\s\S]*?margin-top: 2px;/);
   });
 
+  test("opening the drawer never scrolls the document", () => {
+    // el.drawerClose.focus() on its own made the browser scroll the page to
+    // reveal a button that sits at the top of a panel still translated
+    // off-screen, which slid the whole drawer out from under the reader.
+    assert.match(html, /el\.drawerClose\.focus\(\{ preventScroll: true \}\)/);
+    assert.match(html, /el\.navToggle\.focus\(\{ preventScroll: true \}\)/);
+    assert.ok(!/el\.drawerClose\.focus\(\);/.test(html), "a unscrolling focus came back");
+
+    // And the page behind is held rather than merely clipped.
+    assert.match(html, /function holdScroll\(\)/);
+    assert.match(html, /document\.body\.style\.top = `-\$\{scrollLock\}px`;/);
+    assert.match(html, /function releaseScroll\(\)/);
+    assert.match(html, /window\.scrollTo\(0, scrollLock\);/);
+    assert.match(html, /holdScroll\(\);\s*\n\s*el\.drawerPanel\.setAttribute/);
+    assert.match(html, /releaseScroll\(\);\s*\n\s*el\.drawerPanel\.setAttribute/);
+  });
+
+  test("the drawer panel is a full viewport column", () => {
+    // top:0/bottom:0 resolution depends on the containing block being the
+    // viewport; dvh states the height outright and follows phone chrome.
+    const panel = html.match(/\.drawer-panel \{[^}]*position: fixed;[^}]*\}/);
+    assert.ok(panel, "no positioned drawer panel rule");
+    assert.match(panel[0], /position: fixed; top: 0; left: 0; z-index: 69;/);
+    assert.match(panel[0], /height: 100vh;\s*\n\s*height: 100dvh;/);
+    assert.ok(!/bottom: 0/.test(panel[0]), "the panel went back to bottom: 0");
+  });
+
   test("no leftover debug output ships in the page", () => {
     assert.ok(!html.includes("console.log("), "console.log left in the console page");
     assert.ok(!html.includes("DBG"), "debug marker left in the console page");

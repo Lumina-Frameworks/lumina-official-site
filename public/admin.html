@@ -496,8 +496,14 @@
       body.drawer-open .drawer-veil { opacity: 1; visibility: visible; }
       .drawer-panel {
         display: flex; flex-direction: column;
-        position: fixed; top: 0; bottom: 0; left: 0; z-index: 69;
+        position: fixed; top: 0; left: 0; z-index: 69;
+        /* Explicit viewport height rather than top:0/bottom:0 resolution: dvh
+           follows the phone's chrome as it hides and shows, so the footer cannot
+           end up below the fold. */
+        height: 100vh;
+        height: 100dvh;
         width: min(84vw, 320px);
+        max-width: 100%;
         background: var(--bg-panel);
         border-right: 1px solid var(--line-strong);
         transform: translateX(-102%);
@@ -2822,19 +2828,49 @@
 
     /* ---------- drawer: the phone's navigation ---------- */
 
-    function openDrawer() {
+    /**
+     * Locks the document scroll without losing the reader's place. `overflow:
+     * hidden` alone does nothing once the page is already scrolled on iOS, and
+     * pinning the body would jump it to the top.
+     */
+    let scrollLock = 0;
+    function holdScroll() {
+      scrollLock = window.scrollY || 0;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollLock}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
       document.body.classList.add("drawer-open");
+    }
+
+    function releaseScroll() {
+      document.body.classList.remove("drawer-open");
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollLock);
+    }
+
+    function openDrawer() {
+      holdScroll();
       el.drawerPanel.setAttribute("aria-hidden", "false");
       el.navToggle.setAttribute("aria-expanded", "true");
-      el.drawerClose.focus();
+      // MUST NOT scroll. The close button sits at the top of a panel that is
+      // still translated off-screen, so a plain focus() makes the browser scroll
+      // the document to reveal it, which slides the whole drawer out from under
+      // the reader mid-animation.
+      el.drawerClose.focus({ preventScroll: true });
     }
 
     function closeDrawer({ restoreFocus = false } = {}) {
       if (!document.body.classList.contains("drawer-open")) return;
-      document.body.classList.remove("drawer-open");
+      releaseScroll();
       el.drawerPanel.setAttribute("aria-hidden", "true");
       el.navToggle.setAttribute("aria-expanded", "false");
-      if (restoreFocus) el.navToggle.focus();
+      if (restoreFocus) el.navToggle.focus({ preventScroll: true });
     }
 
     function syncDrawer() {
